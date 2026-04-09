@@ -1,4 +1,7 @@
-from flask import Flask, render_template, request
+
+from flask import Flask, render_template, request, session, redirect, flash
+from models import db, User
+from flask_sqlalchemy import SQLAlchemy
 import numpy as np
 import joblib
 import pytesseract
@@ -9,6 +12,17 @@ import io
 import os
 
 app = Flask(__name__)
+
+app.secret_key = "dhara_secret_123"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dhara.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+
+with app.app_context():
+    db.create_all()
+
 
 # ── Tesseract path (Windows) ──────────────────────────────────
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
@@ -285,9 +299,63 @@ def apply_smart_defaults(parsed, sources):
 
 # ─── Routes ──────────────────────────────────────────────────
 
-@app.route("/")
+@app.route('/')
 def home():
+    if 'user_id' not in session:
+        return redirect('/login')
+
     return render_template("index.html")
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        email = request.form['email']
+        password = request.form['password']
+        location = request.form.get('location')
+        land_size = request.form.get('land_size')
+
+        if User.query.filter_by(email=email).first():
+            flash("Email already exists", "danger")
+            return redirect('/register')
+
+        user = User(name=name, email=email, location=location, land_size=land_size)
+        user.set_password(password)
+
+        db.session.add(user)
+        db.session.commit()
+
+        flash("Registered successfully!", "success")
+        return redirect('/login')
+
+    return render_template('register.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+
+        user = User.query.filter_by(email=email).first()
+
+        if user and user.check_password(password):
+            session['user_id'] = user.id
+            session['email'] = user.email
+
+            flash("Login successful!", "success")
+            return redirect('/')
+
+        flash("Invalid credentials", "danger")
+        return redirect('/login')
+
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash("Logged out", "info")
+    return redirect('/login')
 
 
 @app.route("/predict", methods=["POST"])
