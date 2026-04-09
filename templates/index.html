@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project DHARA 🌾</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Baloo+2:wght@700&display=swap" rel="stylesheet">
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: url("static/farm.jpg") no-repeat center center/cover fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: 30px 16px;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.52);
+            z-index: 0;
+        }
+
+        .wrapper {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* ── Header ── */
+        .header {
+            text-align: center;
+            color: white;
+        }
+        .header h1 {
+            font-family: 'Baloo 2', cursive;
+            font-size: 2.2rem;
+            letter-spacing: 2px;
+            color: #a8e063;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+        }
+        .header p {
+            font-size: 13px;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        /* ── Card ── */
+        .card {
+            background: rgba(255,255,255,0.13);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 24px;
+            color: white;
+        }
+        .card h2 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #d4f5a0;
+        }
+
+        /* ── Upload Zone ── */
+        .upload-zone {
+            border: 2px dashed rgba(168,224,99,0.6);
+            border-radius: 14px;
+            padding: 28px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.25s;
+            position: relative;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #a8e063;
+            background: rgba(168,224,99,0.08);
+        }
+        .upload-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+        .upload-zone .uz-icon { font-size: 38px; margin-bottom: 8px; }
+        .upload-zone .uz-label { font-size: 14px; opacity: 0.85; }
+        .upload-zone .uz-sub { font-size: 11px; opacity: 0.6; margin-top: 4px; }
+        .upload-zone.has-file { border-color: #a8e063; background: rgba(168,224,99,0.12); }
+        .upload-zone.has-file .uz-icon::after { content: " ✅"; font-size: 22px; }
+
+        /* ── Divider ── */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255,255,255,0.4);
+            font-size: 12px;
+            margin: 4px 0;
+        }
+        .divider::before, .divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* ── Inputs ── */
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 6px 0;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.15);
+            color: white;
+            font-family: 'Poppins', sans-serif;
+            font-size: 13px;
+            outline: none;
+            transition: 0.2s;
+        }
+        input::placeholder { color: #ccc; }
+        input:focus {
+            background: rgba(255,255,255,0.25);
+            border-color: #a8e063;
+            box-shadow: 0 0 8px rgba(168,224,99,0.3);
+        }
+
+        .input-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        /* ── Buttons ── */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.25s;
+            font-family: 'Poppins', sans-serif;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #56ab2f, #a8e063);
+            color: white;
+            margin-top: 10px;
+        }
+        .btn-primary:hover { transform: scale(1.03); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .btn-upload {
+            background: linear-gradient(135deg, #1a8a6b, #56ab2f);
+            color: white;
+            margin-top: 10px;
+        }
+        .btn-upload:hover { transform: scale(1.03); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+
+        /* ── Result Card ── */
+        .result-card {
+            background: linear-gradient(135deg, rgba(86,171,47,0.3), rgba(168,224,99,0.2));
+            border: 1px solid rgba(168,224,99,0.5);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+            animation: popIn 0.4s ease;
+        }
+        .result-card .crop-name {
+            font-size: 26px;
+            font-weight: 700;
+            color: #d4f5a0;
+            font-family: 'Baloo 2', cursive;
+        }
+        .result-card .label {
+            font-size: 13px;
+            opacity: 0.8;
+            margin-bottom: 6px;
+        }
+
+        /* ── Extracted Values Grid ── */
+        .extracted-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .ext-chip {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 8px 6px;
+            text-align: center;
+            font-size: 12px;
+        }
+        .ext-chip .key { opacity: 0.65; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .ext-chip .val { font-weight: 600; font-size: 14px; color: #a8e063; }
+        .ext-chip.missing .val { color: #ff9999; }
+        .ext-chip.default .val { color: #ffd580; }
+
+        /* ── Error / Warning ── */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+        .alert-error { background: rgba(255,80,80,0.2); border: 1px solid rgba(255,80,80,0.4); color: #ffb3b3; }
+        .alert-warn { background: rgba(255,200,0,0.15); border: 1px solid rgba(255,200,0,0.3); color: #ffe08a; }
+
+        /* ── Debug raw text ── */
+        .raw-text {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 10px;
+            color: #aaa;
+            max-height: 100px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: monospace;
+        }
+        details summary { font-size: 11px; color: #aaa; cursor: pointer; margin-bottom: 6px; }
+
+        /* ── Tabs ── */
+        .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+        .tab-btn {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            background: transparent;
+            color: rgba(255,255,255,0.6);
+            font-size: 12px;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .tab-btn.active {
+            background: rgba(168,224,99,0.2);
+            border-color: #a8e063;
+            color: #a8e063;
+            font-weight: 600;
+        }
+        .tab-pane { display: none; }
+        .tab-pane.active { display: block; }
+
+        @keyframes popIn {
+            from { transform: scale(0.92); opacity: 0; }
+            to   { transform: scale(1);    opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+        <h1>🌿 PROJECT DHARA</h1>
+        <p>AI-powered crop recommendation for smart farming</p>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- UPLOAD CARD                                            -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="card">
+        <h2>📄 Upload Soil Test Report</h2>
+        <p style="font-size:12px; opacity:0.7; margin-bottom:14px;">
+            Upload your soil lab report (image or PDF) — we'll auto-extract the values and predict the best crop.
+        </p>
+
+        <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
+            <div class="upload-zone" id="uploadZone">
+                <input type="file" name="report" accept=".png,.jpg,.jpeg,.pdf" id="reportFile" required>
+                <div class="uz-icon">🗂️</div>
+                <div class="uz-label">Click to upload or drag & drop</div>
+                <div class="uz-sub">PNG, JPG, PDF supported</div>
+            </div>
+            <button type="submit" class="btn btn-upload">🔍 Extract & Predict</button>
+        </form>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- UPLOAD RESULT                                          -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    {% if upload_results %}
+    <div class="result-card">
+        <div class="label">🌾 Top Recommended Crop from your Report</div>
+        
+        {% for crop, prob in upload_results %}
+            <div style="margin:6px 0; font-size:14px;">
+                <strong>{{ loop.index }}. {{ crop }}</strong> — {{ prob }}%
+            </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if upload_error %}
+    <div class="alert alert-error">⚠️ {{ upload_error }}</div>
+    {% endif %}
+
+    {% if extracted %}
+    <div class="card">
+        <h2>🔬 Extracted Soil Values</h2>
+
+        {% if used_defaults %}
+        <div class="alert alert-warn" style="margin-bottom:12px;">
+            ⚡ Could not extract <strong>{{ used_defaults | join(', ') }}</strong> from report.
+            Regional defaults used — edit manually below if needed.
+        </div>
+        {% endif %}
+
+        <div class="extracted-grid">
+            {% for key, val in extracted.items() %}
+            <div class="ext-chip {% if val is none %}missing{% elif key in (used_defaults or []) %}default{% endif %}">
+                <div class="key">{{ key }}</div>
+                <div class="val">{{ val if val is not none else '—' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if raw_text %}
+        <details style="margin-top:12px;">
+            <summary>🔎 Show raw OCR text (debug)</summary>
+            <div class="raw-text">{{ raw_text }}</div>
+        </details>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- MANUAL FORM CARD                                       -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <div class="card">
+        <h2>✏️ Enter Values Manually</h2>
+        <p style="font-size:12px;opacity:0.7;margin-bottom:14px;">
+            Fill manually or correct the auto-extracted values below.
+        </p>
+        <form action="/predict" method="POST">
+            <div class="input-row">
+                <input type="number" step="any" name="N" placeholder="Nitrogen (N)"
+                    value="{{ prefill.N if prefill else '' }}" required>
+                <input type="number" step="any" name="P" placeholder="Phosphorus (P)"
+                    value="{{ prefill.P if prefill else '' }}" required>
+            </div>
+            <div class="input-row">
+                <input type="number" step="any" name="K" placeholder="Potassium (K)"
+                    value="{{ prefill.K if prefill else '' }}" required>
+                <input type="number" step="any" name="ph" placeholder="pH Level"
+                    value="{{ prefill.ph if prefill else '' }}" required>
+            </div>
+            <div class="input-row">
+                <input type="number" step="any" name="temperature" placeholder="Temp (°C)"
+                    value="{{ prefill.temperature if prefill else '' }}" required>
+                <input type="number" step="any" name="humidity" placeholder="Humidity (%)"
+                    value="{{ prefill.humidity if prefill else '' }}" required>
+            </div>
+            <input type="number" step="any" name="rainfall" placeholder="Rainfall (mm)"
+                value="{{ prefill.rainfall if prefill else '' }}" required>
+            <button type="submit" class="btn btn-primary">🌱 Predict Crop</button>
+        </form>
+
+        {% if top_results %}
+        <div class="result-card" style="margin-top:16px;">
+            <div class="label">🌾 Top Recommended Crops</div>
+
+            {% for crop, prob in top_results %}
+                <div style="margin:6px 0; font-size:14px;">
+                    <strong>{{ crop }}</strong> — {{ prob }}% confidence<strong>{{ loop.index }}. {{ crop }}</strong> — {{ prob }}%
+                </div>
+            {% endfor %}
+            
+        </div>
+        {% endif %}
+    </div>
+
+</div><!-- /wrapper -->
+
+<script>
+    // Upload zone drag-and-drop feedback + file name display
+    const zone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('reportFile');
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files.length > 0) {
+            zone.classList.add('has-file');
+            zone.querySelector('.uz-label').textContent = fileInput.files[0].name;
+            zone.querySelector('.uz-sub').textContent = 'Ready to upload ✅';
+        }
+    });
+
+    zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+
+</body>
+</html>
