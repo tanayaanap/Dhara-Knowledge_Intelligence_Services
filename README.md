@@ -37,7 +37,7 @@ An intelligent agriculture assistant that uses **Machine Learning + OCR + Chatbo
 
 ### 💻 Modern Frontend
 
-* Built with **React + Vite**
+* Built with **React + **
 * Styled using **Tailwind CSS (glassmorphism UI)**
 * Uses **React Router DOM** for navigation
 
