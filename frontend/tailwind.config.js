@@ -1,24 +1,15 @@
 /** @type {import('tailwindcss').Config} */
-export default {
+module.exports = {
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
     extend: {
-      backdropBlur: {
-        xs: '2px',
-      },
-      fontFamily: {
-        'baloo': ['Baloo 2', 'cursive'],
-        'poppins': ['Poppins', 'sans-serif'],
-      },
       colors: {
-        dhara: {
-          green: '#a8e063',
-          darkgreen: '#56ab2f',
-        }
-      }
+        primary: '#10b981',
+        secondary: '#059669',
+        accent: '#34d399',
+      },
     },
   },
   plugins: [],

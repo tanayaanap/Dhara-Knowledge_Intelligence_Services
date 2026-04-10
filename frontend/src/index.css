@@ -1,35 +1,19 @@
-@import 'tailwindcss/base';
-@import 'tailwindcss/components';
-@import 'tailwindcss/utilities';
-
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&family=Baloo+2:wght@700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 * {
-  box-sizing: border-box;
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
 }
 
 body {
-  font-family: 'Poppins', sans-serif;
-  background-attachment: fixed;
-  background-size: cover;
-  background-position: center;
-  background-image: url('/farm.jpg');
-  position: relative;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.52);
-  z-index: 0;
-}
-
-#root {
-  position: relative;
-  z-index: 1;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(to bottom, #f0fdf4, #ffffff);
   min-height: 100vh;
-  padding: 2rem 1rem;
 }
