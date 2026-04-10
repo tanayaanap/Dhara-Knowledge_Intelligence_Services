@@ -7,3 +7,4 @@ pytesseract
 Pillow
 PyMuPDF
 flask_sqlalchemy
+tessseract

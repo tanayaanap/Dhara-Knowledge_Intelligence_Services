@@ -136,87 +136,95 @@ const Home = () => {
   }
 
   return (
-    <div className="wrapper">
-      <button 
-        onClick={handleLogout}
-        className="glass p-3 rounded-xl text-white font-semibold bg-red-500/30 hover:bg-red-500/50 transition-all duration-200 self-end"
-      >
-        Logout
-      </button>
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-8 text-white sm:px-6 lg:px-8">
+      <div className="flex justify-end">
+        <button
+          onClick={handleLogout}
+          className="rounded-3xl bg-red-500/30 px-5 py-3 text-sm font-semibold text-white transition hover:bg-red-500/50"
+        >
+          Logout
+        </button>
+      </div>
 
-      <div className="header text-center">
-        <h1 className="text-4xl md:text-5xl font-baloo text-dhara-green drop-shadow-2xl mb-2 tracking-wide">
+      <div className="text-center">
+        <h1 className="text-4xl font-baloo text-dhara-green drop-shadow-2xl tracking-wide sm:text-5xl">
           🌿 PROJECT DHARA
         </h1>
-        <p className="text-sm opacity-85 max-w-md mx-auto">
+        <p className="mx-auto mt-2 max-w-2xl text-sm opacity-80">
           {user ? `Welcome back, ${user.name}!` : 'AI-powered crop recommendation for smart farming'}
         </p>
       </div>
 
       {uploadError && (
-        <div className="glass bg-red-500/20 border-2 border-red-500/40 p-4 rounded-xl animate-pulse">
+        <div className="rounded-3xl border border-red-500/40 bg-red-500/20 p-4 text-sm text-red-100 animate-pulse">
           ⚠️ {uploadError}
         </div>
       )}
 
-      <div className="glass p-6">
-        <h2 className="text-lg font-semibold text-dhara-green mb-4 flex items-center gap-2">
-          📄 Upload Soil Test Report
-        </h2>
+      <section className="rounded-[28px] border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+        <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-dhara-green">
+          <span>📄</span>
+          <span>Upload Soil Test Report</span>
+        </div>
         <UploadZone onUpload={handleUpload} />
-        <button 
+        <button
           disabled={uploadLoading}
-          className="w-full mt-4 bg-gradient-to-r from-emerald-500 to-dhara-green text-white py-3 rounded-xl font-semibold hover:scale-105 transition-all disabled:opacity-50"
+          className="mt-4 w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-dhara-green py-3 text-sm font-semibold text-white transition duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {uploadLoading ? 'Processing...' : '🔍 Extract & Predict'}
         </button>
-      </div>
+      </section>
 
       {uploadResults.length > 0 && (
-        <div className="glass p-6 border-2 border-dhara-green/50 bg-dhara-green/10">
-          <h3 className="text-xl font-semibold text-dhara-green mb-4">🌾 Top Recommended Crops</h3>
-          <div className="space-y-2">
+        <section className="rounded-[28px] border border-dhara-green/50 bg-dhara-green/10 p-6 shadow-2xl shadow-black/15">
+          <h3 className="mb-4 text-xl font-semibold text-dhara-green">🌾 Top Recommended Crops</h3>
+          <div className="space-y-3">
             {uploadResults.map((result, index) => (
               <div key={index} className="text-lg">
-                <span className="font-bold text-white">{index + 1}.</span> {result.crop} — <span className="text-dhara-green font-semibold">{result.probability}%</span>
+                <span className="font-bold text-white">{index + 1}.</span>{' '}
+                {result.crop} — <span className="text-dhara-green font-semibold">{result.probability}%</span>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       {Object.keys(extracted).length > 0 && (
-        <div className="glass p-6">
-          <h2 className="text-lg font-semibold text-dhara-green mb-4 flex items-center gap-2">🔬 Extracted Values</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <section className="rounded-[28px] border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/15">
+          <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-dhara-green">
+            <span>🔬</span>
+            <span>Extracted Values</span>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
             {Object.entries(extracted).map(([key, val]) => (
-              <div key={key} className="glass p-3 rounded-xl text-center">
-                <div className="text-xs uppercase opacity-70">{key}</div>
-                <div className="font-bold text-lg text-dhara-green">{val || '—'}</div>
+              <div key={key} className="rounded-3xl border border-white/20 bg-white/10 p-4 text-center">
+                <div className="text-xs uppercase tracking-[0.2em] text-white/70">{key}</div>
+                <div className="mt-2 text-lg font-bold text-dhara-green">{val || '—'}</div>
               </div>
             ))}
           </div>
           {usedDefaults.length > 0 && (
-            <div className="text-xs text-amber-300 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+            <div className="mt-4 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-100">
               ⚡ Defaults used: {usedDefaults.join(', ')}
             </div>
           )}
-        </div>
+        </section>
       )}
 
-      <div className="glass p-6">
-        <h2 className="text-lg font-semibold text-dhara-green mb-4 flex items-center gap-2">
-          ✏️ Enter Values Manually
-        </h2>
-        <form onSubmit={handlePredict} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+      <section className="rounded-[28px] border border-white/20 bg-white/10 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl">
+        <div className="mb-4 flex items-center gap-2 text-lg font-semibold text-dhara-green">
+          <span>✏️</span>
+          <span>Enter Values Manually</span>
+        </div>
+        <form onSubmit={handlePredict} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
             <input
               name="N"
               type="number"
               value={formData.N}
-              onChange={(e) => setFormData({...formData, N: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, N: e.target.value })}
               placeholder="Nitrogen"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
@@ -224,21 +232,21 @@ const Home = () => {
               name="P"
               type="number"
               value={formData.P}
-              onChange={(e) => setFormData({...formData, P: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, P: e.target.value })}
               placeholder="Phosphorus"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <input
               name="K"
               type="number"
               value={formData.K}
-              onChange={(e) => setFormData({...formData, K: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, K: e.target.value })}
               placeholder="Potassium"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
@@ -246,21 +254,21 @@ const Home = () => {
               name="ph"
               type="number"
               value={formData.ph}
-              onChange={(e) => setFormData({...formData, ph: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, ph: e.target.value })}
               placeholder="pH"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <input
               name="temperature"
               type="number"
               value={formData.temperature}
-              onChange={(e) => setFormData({...formData, temperature: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, temperature: e.target.value })}
               placeholder="Temp (°C)"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
@@ -268,9 +276,9 @@ const Home = () => {
               name="humidity"
               type="number"
               value={formData.humidity}
-              onChange={(e) => setFormData({...formData, humidity: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, humidity: e.target.value })}
               placeholder="Humidity (%)"
-              className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all"
+              className="rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
               step="0.01"
               required
             />
@@ -279,82 +287,80 @@ const Home = () => {
             name="rainfall"
             type="number"
             value={formData.rainfall}
-            onChange={(e) => setFormData({...formData, rainfall: e.target.value})}
+            onChange={(e) => setFormData({ ...formData, rainfall: e.target.value })}
             placeholder="Rainfall (mm)"
-            className="p-3 bg-white/10 border border-white/20 rounded-xl text-white focus:bg-white/20 focus:border-dhara-green transition-all w-full"
+            className="w-full rounded-3xl border border-white/20 bg-white/10 px-4 py-3 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
             step="0.01"
             required
           />
           <button
             type="submit"
             disabled={predictLoading}
-            className="w-full bg-gradient-to-r from-dhara-green to-emerald-500 text-white py-3 px-4 rounded-xl font-semibold hover:scale-105 transition-all shadow-lg hover:shadow-xl disabled:opacity-50"
+            className="w-full rounded-3xl bg-gradient-to-r from-dhara-green to-emerald-500 py-3 text-sm font-semibold text-white transition duration-200 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {predictLoading ? 'Predicting...' : '🌱 Predict Crop'}
           </button>
         </form>
 
         {topResults.length > 0 && (
-          <div className="mt-6 glass p-6 border-2 border-dhara-green/50 bg-dhara-green/10">
-            <h3 className="text-xl font-semibold text-dhara-green mb-4">🌾 Top Recommended Crops</h3>
+          <div className="mt-6 rounded-[28px] border border-dhara-green/50 bg-dhara-green/10 p-6 shadow-2xl shadow-black/15">
+            <h3 className="mb-4 text-xl font-semibold text-dhara-green">🌾 Top Recommended Crops</h3>
             <div className="space-y-2">
               {topResults.map((result, index) => (
                 <div key={index} className="text-lg">
-                  <span className="font-bold text-white">{index + 1}.</span> {result.crop} — <span className="text-dhara-green font-semibold">{result.probability}%</span>
+                  <span className="font-bold text-white">{index + 1}.</span>{' '}
+                  {result.crop} — <span className="text-dhara-green font-semibold">{result.probability}%</span>
                 </div>
               ))}
             </div>
           </div>
         )}
-      </div>
+      </section>
 
-      <div 
-        className="fixed bottom-8 right-8 w-14 h-14 bg-emerald-500 text-white rounded-full flex items-center justify-center cursor-pointer shadow-2xl hover:scale-110 transition-all z-50 shadow-lg hover:shadow-2xl"
-        onClick={() => setChatOpen(!chatOpen)}
-      >
-        💬
+      <div className="fixed bottom-8 right-8 z-50">
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-xl text-white shadow-2xl transition hover:scale-110"
+        >
+          💬
+        </button>
       </div>
 
       {chatOpen && (
-        <div className="fixed bottom-20 right-8 w-80 h-96 glass rounded-2xl flex flex-col shadow-2xl z-50 border border-white/20 overflow-hidden">
-          <div className="bg-emerald-500 p-4 text-white font-semibold flex items-center gap-2">
-            🌱 DHARA Assistant
-            <button onClick={() => setChatOpen(false)} className="ml-auto text-white/70 hover:text-white">×</button>
+        <div className="fixed bottom-20 right-8 z-50 flex h-[24rem] w-80 flex-col overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl backdrop-blur-xl">
+          <div className="flex items-center gap-2 bg-emerald-500 px-4 py-3 text-white font-semibold">
+            <span>🌱</span>
+            <span>DHARA Assistant</span>
+            <button onClick={() => setChatOpen(false)} className="ml-auto text-white/80 hover:text-white">
+              ×
+            </button>
           </div>
-          <div className="flex-1 p-4 overflow-y-auto bg-black/5">
+          <div className="flex-1 overflow-y-auto bg-black/5 p-4">
             {chatMessages.map((msg, index) => (
               <div key={index} className="mb-4">
-                <span className="font-semibold text-emerald-400">{msg.sender}:</span>
-                <div className="mt-1 text-sm whitespace-pre-wrap">{msg.text}</div>
+                <div className="text-sm font-semibold text-emerald-400">{msg.sender}:</div>
+                <div className="mt-1 whitespace-pre-wrap text-sm text-white/90">{msg.text}</div>
               </div>
             ))}
             <div ref={messagesEndRef} />
           </div>
-          <div className="p-3 border-t border-white/10 flex gap-2">
+          <div className="flex gap-2 border-t border-white/10 p-3">
             <input
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleChatSend()}
               placeholder="Ask about crops..."
-              className="flex-1 bg-white/10 border border-white/20 rounded-xl p-2 text-white placeholder-white/60 focus:bg-white/20 focus:border-dhara-green outline-none"
+              className="flex-1 rounded-3xl border border-white/20 bg-white/10 px-4 py-2 text-white outline-none transition focus:border-dhara-green focus:bg-white/20"
             />
             <button
               onClick={handleChatSend}
-              className="bg-emerald-500 text-white px-4 py-2 rounded-xl font-semibold hover:bg-emerald-600 transition-colors whitespace-nowrap"
+              className="rounded-3xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-600"
             >
               Send
             </button>
           </div>
         </div>
       )}
-
-      <style>{`
-        .wrapper { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.25rem; }
-        .header h1 { font-size: 2.5rem; }
-        @media (min-width: 768px) { .header h1 { font-size: 3.5rem; } }
-        .glass { background: rgba(255,255,255,0.13); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.2); border-radius: 20px; }
-        input { font-family: inherit; }
-      `}</style>
     </div>
   )
 }

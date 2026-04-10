@@ -32,8 +32,8 @@ pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tessera
 
 # ── Load trained model + encoder ─────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
-le = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+model = joblib.load(os.path.join(BASE_DIR, "ml/xgboost_model.pkl"))
+le = joblib.load(os.path.join(BASE_DIR, "ml/label_encoder.pkl"))
 
 UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

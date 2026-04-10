@@ -40,8 +40,8 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="glass p-8 rounded-3xl w-full max-w-md shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(34,197,94,0.18),_transparent_55%),radial-gradient(circle_at_bottom_left,_rgba(59,130,246,0.18),_transparent_40%)] p-4">
+      <div className="w-full max-w-md rounded-3xl border border-white/20 bg-white/10 p-8 shadow-2xl shadow-black/20 backdrop-blur-xl">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-baloo text-dhara-green mb-2">🌿 Join DHARA</h1>
           <p className="text-white/80">Create your farmer account</p>
@@ -49,7 +49,7 @@ const Register = () => {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-white/90 text-sm mb-2 flex items-center gap-2">
+            <label className="text-white/90 text-sm mb-2 flex items-center gap-2">
               <User className="w-4 h-4" />
               Name
             </label>
@@ -64,7 +64,7 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-white/90 text-sm mb-2 flex items-center gap-2">
+            <label className="text-white/90 text-sm mb-2 flex items-center gap-2">
               <Mail className="w-4 h-4" />
               Email
             </label>
@@ -79,7 +79,7 @@ const Register = () => {
           </div>
 
           <div>
-            <label className="block text-white/90 text-sm mb-2 flex items-center gap-2">
+            <label className="text-white/90 text-sm mb-2 flex items-center gap-2">
               <Lock className="w-4 h-4" />
               Password
             </label>
@@ -95,7 +95,7 @@ const Register = () => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white/90 text-sm mb-2 flex items-center gap-2">
+              <label className="text-white/90 text-sm mb-2 flex items-center gap-2">
                 <MapPin className="w-4 h-4" />
                 Location
               </label>
@@ -109,7 +109,7 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-white/90 text-sm mb-2 flex items-center gap-2">
+              <label className="text-white/90 text-sm mb-2 flex items-center gap-2">
                 <Ruler className="w-4 h-4" />
                 Land Size
               </label>
@@ -124,7 +124,7 @@ const Register = () => {
           </div>
 
           {error && (
-            <div className="glass bg-red-500/20 border-red-500/40 text-red-100 p-3 rounded-xl text-sm">
+            <div className="rounded-xl border border-red-500/40 bg-red-500/20 p-3 text-sm text-red-100">
               {error}
             </div>
           )}
