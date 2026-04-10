@@ -1,9 +1,8 @@
-
-from flask import Flask, render_template, request, session, redirect, flash
+import json
+from flask import Flask, render_template, request, session, redirect, flash, jsonify
 from models import db, User
 from flask_sqlalchemy import SQLAlchemy
 from chatbot import get_response
-from flask import jsonify
 import numpy as np
 import joblib
 import pytesseract
@@ -16,6 +15,8 @@ import os
 app = Flask(__name__)
 
 app.secret_key = "dhara_secret_123"
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dhara.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -299,6 +300,96 @@ def apply_smart_defaults(parsed, sources):
     return parsed, used_defaults
 
 
+@app.route('/api/predict', methods=['POST'])
+def api_predict():
+    try:
+        data = request.form
+        sample = np.array([[
+            float(data["N"]), float(data["P"]), float(data["K"]),
+            float(data["temperature"]), float(data["humidity"]),
+            float(data["ph"]), float(data["rainfall"])
+        ]])
+        probs = model.predict_proba(sample)[0]
+        top_indices = np.argsort(probs)[-5:][::-1]
+        top_crops = le.inverse_transform(top_indices)
+        results = [{"crop": str(crop), "probability": round(probs[i]*100, 2)} for crop, i in zip(top_crops, top_indices)]
+        return jsonify({"success": True, "top_results": results})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+def parse_request_data():
+    raw_text = request.get_data(as_text=True)
+    data = {}
+
+    if raw_text:
+        try:
+            data = json.loads(raw_text)
+        except Exception:
+            data = {}
+
+    if not data:
+        data = request.form.to_dict(flat=True)
+
+    return data
+
+
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    data = parse_request_data()
+    name = (data.get('name') or '').strip()
+    email = (data.get('email') or '').strip().lower()
+    password = (data.get('password') or '').strip()
+    location = (data.get('location') or '').strip() if data.get('location') else None
+    land_size = (data.get('land_size') or '').strip() if data.get('land_size') else None
+
+    if not name or not email or not password:
+        return jsonify({"success": False, "error": "Name, email, and password are required."}), 400
+
+    if User.query.filter_by(email=email).first():
+        return jsonify({"success": False, "error": "Email already exists."}), 409
+
+    user = User(name=name, email=email, location=location, land_size=land_size)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Registered successfully."})
+
+
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = parse_request_data()
+    email = (data.get('email') or '').strip().lower()
+    password = (data.get('password') or '').strip()
+
+    if not email or not password:
+        return jsonify({"success": False, "error": "Email and password are required."}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user and user.check_password(password):
+        session['user_id'] = user.id
+        session['email'] = user.email
+        return jsonify({"success": True, "message": "Login successful.", "user": {"id": user.id, "email": user.email, "name": user.name}})
+
+    return jsonify({"success": False, "error": "Invalid credentials."}), 401
+
+
+@app.route('/api/user', methods=['GET'])
+def api_user():
+    if 'user_id' in session:
+        user = User.query.get(session['user_id'])
+        if user:
+            return jsonify({"authenticated": True, "user": {"id": user.id, "email": user.email, "name": user.name}})
+    return jsonify({"authenticated": False}), 401
+
+
+@app.errorhandler(500)
+def handle_internal_error(error):
+    app.logger.exception("Internal server error")
+    if request.path.startswith('/api/'):
+        return jsonify({"success": False, "error": "Internal server error", "details": str(error)}), 500
+    return jsonify({"success": False, "error": "Internal server error"}), 500
+
 # ─── Routes ──────────────────────────────────────────────────
 
 @app.route('/')
@@ -353,6 +444,11 @@ def login():
 
     return render_template('login.html')
 
+@app.route('/api/logout', methods=['POST'])
+def api_logout():
+    session.clear()
+    return jsonify({"success": True, "message": "Logged out"})
+
 @app.route('/logout')
 def logout():
     session.clear()
@@ -372,23 +468,54 @@ def predict():
         rainfall = float(request.form["rainfall"])
 
         sample = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-        #prediction = model.predict(sample)
-
         probs = model.predict_proba(sample)[0]
-        # Get top 5 indices
         top_indices = np.argsort(probs)[-5:][::-1]
-        # Convert to crop names
         top_crops = le.inverse_transform(top_indices)
-        # Pair with probabilities
-
         results = [(crop, round(probs[i]*100, 2)) for crop, i in zip(top_crops, top_indices)]
-        
-        #crop = le.inverse_transform(prediction)
         return render_template("index.html", top_results=results)
-
     except Exception as e:
         return render_template("index.html", prediction="Error: " + str(e))
 
+
+@app.route("/api/upload", methods=["POST"])
+def api_upload():
+    if "report" not in request.files:
+        return jsonify({"success": False, "error": "No file uploaded."}), 400
+
+    file = request.files["report"]
+    if file.filename == "":
+        return jsonify({"success": False, "error": "No file selected."}), 400
+    if not allowed_file(file.filename):
+        return jsonify({"success": False, "error": "Invalid file. Use PNG, JPG, or PDF."}), 400
+
+    try:
+        file_bytes = file.read()
+        raw_text = extract_text_from_file(file_bytes, file.filename)
+
+        parsed, sources = parse_soil_values(raw_text)
+        parsed, used_defaults = apply_smart_defaults(parsed, sources)
+
+        sample = np.array([[
+            parsed["N"] or 0, parsed["P"] or 0, parsed["K"] or 0,
+            parsed["temperature"] or 25, parsed["humidity"] or 70,
+            parsed["ph"] or 6.5, parsed["rainfall"] or 100
+        ]])
+        
+        probs = model.predict_proba(sample)[0]
+        top_indices = np.argsort(probs)[-5:][::-1]
+        top_crops = le.inverse_transform(top_indices)
+        upload_results = [{"crop": str(crop), "probability": round(probs[i]*100, 2)} for crop, i in zip(top_crops, top_indices)]
+
+        return jsonify({
+            "success": True,
+            "upload_results": upload_results,
+            "extracted": parsed,
+            "sources": sources,
+            "used_defaults": used_defaults,
+            "raw_text": raw_text[:1200]
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Processing error: {str(e)}"}), 500
 
 @app.route("/upload", methods=["POST"])
 def upload():
@@ -420,10 +547,6 @@ def upload():
         top_crops = le.inverse_transform(top_indices)
         results = [(crop, round(probs[i]*100, 2)) for crop, i in zip(top_crops, top_indices)]
 
-        
-
-
-
         return render_template("index.html",
             upload_results=results,
             extracted=parsed,
@@ -435,6 +558,13 @@ def upload():
     except Exception as e:
         return render_template("index.html", upload_error=f"Processing error: {str(e)}")
 
+@app.route('/api/chat', methods=['POST'])
+def api_chat():
+    data = request.get_json()
+    user_message = data.get('message', '')
+    reply = get_response(user_message)
+    return jsonify({'reply': reply})
+
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.get_json()
@@ -444,5 +574,5 @@ def chat():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=True)
 
