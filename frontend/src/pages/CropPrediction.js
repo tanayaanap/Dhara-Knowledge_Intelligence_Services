@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
+const BACKEND_URL = "http://127.0.0.1:5000";
 
 const INPUT_FIELDS = [
   { name: 'nitrogen', label: 'Nitrogen (N)', unit: 'kg/ha', icon: '🔵' },
@@ -40,22 +40,34 @@ function CropPrediction() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    for (let key in formData) {
+      if (formData[key] === "") {
+        setError("Please fill all fields!");
+        return;
+      }
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
+
     try {
       const response = await axios.post(`${BACKEND_URL}/api/predict`, {
-        N: parseFloat(formData.nitrogen),
-        P: parseFloat(formData.phosphorus),
-        K: parseFloat(formData.potassium),
-        temperature: parseFloat(formData.temperature),
-        humidity: parseFloat(formData.humidity),
-        ph: parseFloat(formData.ph),
-        rainfall: parseFloat(formData.rainfall),
+        N: Number(formData.nitrogen),
+        P: Number(formData.phosphorus),
+        K: Number(formData.potassium),
+        temperature: Number(formData.temperature),
+        humidity: Number(formData.humidity),
+        ph: Number(formData.ph),
+        rainfall: Number(formData.rainfall),
       });
+
+      console.log("API RESPONSE:", response.data);
       setResult(response.data);
     } catch (err) {
-      setError('Failed to get prediction. Please check your inputs and try again.');
+      console.log("ERROR:", err.response?.data || err.message);
+      setError("Failed to get prediction. Check inputs.");
     } finally {
       setLoading(false);
     }
@@ -123,7 +135,6 @@ function CropPrediction() {
     setActiveTab('manual');
   };
 
-  // Normalize backend result: { success, results: [{crop, probability}] }
   const topCrop = result?.results?.[0];
   const alternatives = result?.results?.slice(1) || [];
 
@@ -209,10 +220,12 @@ function CropPrediction() {
               </form>
             </div>
           )}
+          {/* END Manual Entry Tab */}
 
           {/* ── Upload Report Tab ── */}
           {activeTab === 'upload' && (
             <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+
               <h2 className="text-lg font-bold text-gray-800 mb-1">Upload Soil Test Report</h2>
               <p className="text-sm text-gray-500 mb-6">
                 Upload an image or PDF of your soil test report — we'll extract the values automatically using OCR.
@@ -244,6 +257,7 @@ function CropPrediction() {
                   Supports: JPG, PNG, PDF
                 </span>
               </div>
+              {/* END Drop Zone */}
 
               {/* Selected File Preview */}
               {uploadFile && (
@@ -271,6 +285,7 @@ function CropPrediction() {
                   </button>
                 </div>
               )}
+              {/* END Selected File Preview */}
 
               {/* Scan Error */}
               {scanError && (
@@ -299,61 +314,99 @@ function CropPrediction() {
 
               {/* Extraction Results */}
               {scanResult && (
-                <div className="mt-6 animate-fade-in">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">✓</div>
-                    <h3 className="font-bold text-gray-800">Extraction Results</h3>
-                    <span className="ml-auto text-xs text-gray-400">
-                      {Object.keys(scanResult.extracted).length} / {INPUT_FIELDS.length} fields found
-                    </span>
+                <div className="mt-6 p-4 bg-white rounded-xl shadow">
+
+                  <h3 className="font-bold text-lg mb-3">Extracted Values</h3>
+
+                  {/* ✅ TABLE FORMAT */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border rounded-xl overflow-hidden">
+                      <thead className="bg-green-100 text-gray-700">
+                        <tr>
+                          <th className="p-2 text-left">Parameter</th>
+                          <th className="p-2 text-left">Extracted</th>
+                          <th className="p-2 text-left">Suggested</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { key: "nitrogen", label: "🌱 Nitrogen", def: 50 },
+                          { key: "phosphorus", label: "🧪 Phosphorus", def: 50 },
+                          { key: "potassium", label: "💊 Potassium", def: 50 },
+                          { key: "temperature", label: "🌡️ Temperature", def: 25 },
+                          { key: "humidity", label: "💧 Humidity", def: 60 },
+                          { key: "ph", label: "⚗️ pH", def: 6.5 },
+                          { key: "rainfall", label: "🌧️ Rainfall", def: 100 },
+                        ].map((item) => {
+                          const value = scanResult.extracted[item.key];
+                          const missing = value === null || value === undefined;
+
+                          return (
+                            <tr key={item.key} className="border-t">
+                              <td className="p-2">{item.label}</td>
+
+                              <td className={`p-2 ${missing ? "text-red-500" : ""}`}>
+                                {missing ? "Not found ❌" : value}
+                              </td>
+
+                              <td className="p-2 text-green-700 font-medium">
+                                {missing ? `${item.def} (default)` : "✔ OK"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {INPUT_FIELDS.map(field => {
-                      const found = scanResult.extracted[field.name] !== undefined;
-                      return (
-                        <div
-                          key={field.name}
-                          className={`flex items-center gap-3 p-3 rounded-xl border ${
-                            found ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
-                          }`}
-                        >
-                          <span className="text-xl flex-shrink-0">{field.icon}</span>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-gray-500">{field.label}</p>
-                            <p className={`font-semibold text-sm ${found ? 'text-green-700' : 'text-gray-400'}`}>
-                              {found
-                                ? `${scanResult.extracted[field.name]}${field.unit ? ' ' + field.unit : ''}`
-                                : 'Not detected'}
-                            </p>
-                          </div>
-                          <span className={`text-sm font-bold flex-shrink-0 ${found ? 'text-green-500' : 'text-gray-300'}`}>
-                            {found ? '✓' : '✗'}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
+                  {/* Button */}
                   {Object.keys(scanResult.extracted).length > 0 ? (
                     <button
                       onClick={useExtractedValues}
-                      className="w-full mt-4 py-3 px-6 bg-green-500 text-white rounded-xl font-semibold hover:bg-green-600 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+                      className="w-full mt-4 py-2 bg-green-500 text-white rounded-lg"
                     >
-                      Fill Form with Extracted Values
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                      Use These Values
                     </button>
                   ) : (
                     <p className="mt-4 text-center text-sm text-gray-500">
-                      No values could be extracted. Please try a clearer image or use manual entry.
+                      No values extracted.
                     </p>
                   )}
+
+                  {/* ✅ TOP 3–4 CROPS */}
+                  {scanResult?.results && scanResult.results.length > 0 && (
+                    <div className="mt-6 bg-green-50 p-4 rounded-xl">
+                      <h3 className="font-bold mb-3">🌾 Top Crop Recommendations</h3>
+
+                      <div className="space-y-2">
+                        {scanResult.results.slice(0, 4).map((crop, index) => (
+                          <div
+                            key={index}
+                            className={`flex justify-between items-center p-3 rounded-lg ${
+                              index === 0
+                                ? "bg-green-200 font-semibold"
+                                : "bg-white"
+                            }`}
+                          >
+                            <span>#{index + 1} {crop.crop}</span>
+                            <span className="text-sm text-gray-600">
+                              {crop.probability}%
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* END OCR Prediction Result */}
+
                 </div>
               )}
+              {/* END Extraction Results */}
+
+
             </div>
           )}
+          {/* END Upload Report Tab */}
 
           {/* Error Message */}
           {error && (
@@ -387,7 +440,10 @@ function CropPrediction() {
                   <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Alternative Crops</h3>
                   <div className="flex flex-wrap gap-2">
                     {alternatives.map((alt, index) => (
-                      <span key={index} className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium capitalize flex items-center gap-1">
+                      <span
+                        key={index}
+                        className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium capitalize flex items-center gap-1"
+                      >
                         {alt.crop}
                         <span className="text-green-500 text-xs">({alt.probability}%)</span>
                       </span>
@@ -397,9 +453,12 @@ function CropPrediction() {
               )}
             </div>
           )}
+          {/* END Prediction Result */}
 
         </div>
+        {/* END max-w-4xl */}
       </div>
+      {/* END container */}
     </div>
   );
 }

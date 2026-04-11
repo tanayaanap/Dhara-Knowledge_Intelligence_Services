@@ -31,47 +31,142 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = joblib.load(os.path.join(BASE_DIR, "ml/xgboost_model.pkl"))
 le = joblib.load(os.path.join(BASE_DIR, "ml/label_encoder.pkl"))
 
-# ---------------- TESSERACT CONFIG ----------------
-# Set Tesseract path (update this path after installation)
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+# ---------------- TESSERACT ----------------
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
-# ---------------- CORS FIX (IMPORTANT FOR REACT) ----------------
-CORS(app, supports_credentials=True)
-
-# ---------------- HEALTH CHECK ----------------
+# ---------------- HEALTH ----------------
 @app.route("/")
 def home():
     return jsonify({"status": "backend running"})
 
-# ---------------- CROP PREDICT ----------------
+# ---------------- SAFE FLOAT ----------------
+def safe_float(val, default=0):
+    try:
+        return float(val)
+    except:
+        return default
+
+# ---------------- MODEL PREDICT ----------------
+def predict_crop(N, P, K, ph, temperature, humidity, rainfall):
+    try:
+        features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
+
+        probs = model.predict_proba(features)[0]
+        top_indices = np.argsort(probs)[-4:][::-1]
+
+        results = []
+        for i in top_indices:
+            results.append({
+                "crop": str(le.inverse_transform([i])[0]),  # ensure string
+                "probability": float(round(float(probs[i]) * 100, 2))  # 🔥 FIX
+            })
+
+        return results
+
+    except Exception as e:
+        print("Prediction error:", e)
+        return []
+
+
+# ---------------- MANUAL PREDICT ----------------
 @app.route("/api/predict", methods=["POST"])
 def predict():
     try:
-        data = request.json
+        data = request.get_json()
+        print("Incoming data:", data)  # 🔥 DEBUG
 
-        sample = np.array([[
-            float(data["N"]),
-            float(data["P"]),
-            float(data["K"]),
-            float(data["temperature"]),
-            float(data["humidity"]),
-            float(data["ph"]),
-            float(data["rainfall"])
-        ]])
+        N = safe_float(data.get("N"))
+        P = safe_float(data.get("P"))
+        K = safe_float(data.get("K"))
+        ph = safe_float(data.get("ph"))
+        temperature = safe_float(data.get("temperature"))
+        humidity = safe_float(data.get("humidity"))
+        rainfall = safe_float(data.get("rainfall"))
 
-        probs = model.predict_proba(sample)[0]
-        top_indices = np.argsort(probs)[-5:][::-1]
-        top_crops = le.inverse_transform(top_indices)
+        results = predict_crop(N, P, K, ph, temperature, humidity, rainfall)
 
-        results = [
-            {"crop": str(crop), "probability": round(probs[i] * 100, 2)}
-            for crop, i in zip(top_crops, top_indices)
-        ]
-
-        return jsonify({"success": True, "results": results})
+        return jsonify({"results": results})
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 400
+        print("ERROR:", e)
+        return jsonify({"error": str(e)}), 400
+
+# ---------------- OCR PARSER ----------------
+def parse_soil_report(text):
+    t = text.lower()
+    result = {}
+
+    field_patterns = {
+        'nitrogen':    [r'nitrogen\D{0,15}(\d+\.?\d*)', r'(?<![a-z])n\s*[:\-=]\s*(\d+\.?\d*)'],
+        'phosphorus':  [r'phosphorus\D{0,15}(\d+\.?\d*)', r'(?<![a-z])p\s*[:\-=]\s*(\d+\.?\d*)'],
+        'potassium':   [r'potassium\D{0,15}(\d+\.?\d*)', r'(?<![a-z])k\s*[:\-=]\s*(\d+\.?\d*)'],
+        'ph':          [r'ph\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'temperature': [r'temp(?:erature)?\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'humidity':    [r'humidity\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'rainfall':    [r'rainfall\s*[:\-=]?\s*(\d+\.?\d*)'],
+    }
+
+    for key, pats in field_patterns.items():
+        for pat in pats:
+            m = re.search(pat, t)
+            if m:
+                try:
+                    result[key] = float(m.group(1))
+                except:
+                    pass
+                break
+
+    return result
+
+# ---------------- OCR + PREDICT ----------------
+@app.route('/api/ocr-scan', methods=['POST'])
+def ocr_scan():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+
+    file = request.files['file']
+    filename = (file.filename or '').lower()
+
+    try:
+        text = ""
+
+        if filename.endswith('.pdf'):
+            pdf_bytes = file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+
+            for page in doc:
+                pix = page.get_pixmap()
+                img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                text += pytesseract.image_to_string(img)
+
+        else:
+            img = Image.open(file.stream)
+            text = pytesseract.image_to_string(img)
+
+        extracted = parse_soil_report(text)
+
+        # ✅ DEFAULTS (IMPORTANT)
+        N = extracted.get("nitrogen") or 50
+        P = extracted.get("phosphorus") or 30
+        K = extracted.get("potassium") or 50
+        ph = extracted.get("ph") or 6.5
+        temperature = extracted.get("temperature") or 25
+        humidity = extracted.get("humidity") or 70
+        rainfall = extracted.get("rainfall") or 100
+
+        results = predict_crop(N, P, K, ph, temperature, humidity, rainfall)
+
+        print("Processed values:", N, P, K, ph, temperature, humidity, rainfall)
+
+
+        return jsonify({
+            'success': True,
+            'extracted': extracted,
+            'results': results   # 🔥 THIS FIXES YOUR ISSUE
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # ---------------- CHAT ----------------
 @app.route("/api/chat", methods=["POST"])
@@ -85,6 +180,7 @@ def chat():
 @app.route('/api/login', methods=['POST'])
 def api_login():
     data = request.get_json()
+    
 
     email = (data.get('email') or '').strip().lower()
     password = (data.get('password') or '').strip()
@@ -189,60 +285,6 @@ def update_profile():
 def logout():
     session.clear()
     return jsonify({'success': True})
-
-
-# ---------------- OCR SCAN ----------------
-def parse_soil_report(text):
-    t = text.lower()
-    result = {}
-    field_patterns = {
-        'nitrogen':    [r'nitrogen\D{0,15}(\d+\.?\d*)', r'(?<![a-z])n\s*[:\-=]\s*(\d+\.?\d*)'],
-        'phosphorus':  [r'phosphorus\D{0,15}(\d+\.?\d*)', r'(?<![a-z])p\s*[:\-=]\s*(\d+\.?\d*)'],
-        'potassium':   [r'potassium\D{0,15}(\d+\.?\d*)', r'(?<![a-z])k\s*[:\-=]\s*(\d+\.?\d*)'],
-        'ph':          [r'ph\s*[:\-=]?\s*(\d+\.?\d*)'],
-        'temperature': [r'temp(?:erature)?\s*[:\-=]?\s*(\d+\.?\d*)'],
-        'humidity':    [r'humidity\s*[:\-=]?\s*(\d+\.?\d*)', r'moisture\s*[:\-=]?\s*(\d+\.?\d*)'],
-        'rainfall':    [r'rainfall\s*[:\-=]?\s*(\d+\.?\d*)', r'precipitation\s*[:\-=]?\s*(\d+\.?\d*)'],
-    }
-    for key, pats in field_patterns.items():
-        for pat in pats:
-            m = re.search(pat, t)
-            if m:
-                try:
-                    result[key] = float(m.group(1))
-                except ValueError:
-                    pass
-                break
-    return result
-
-
-@app.route('/api/ocr-scan', methods=['POST'])
-def ocr_scan():
-    if 'file' not in request.files:
-        return jsonify({'success': False, 'error': 'No file provided'}), 400
-    file = request.files['file']
-    filename = (file.filename or '').lower()
-    text = ''
-    try:
-        if filename.endswith('.pdf'):
-            pdf_bytes = file.read()
-            doc = fitz.open(stream=pdf_bytes, filetype='pdf')
-            for page in doc:
-                page_text = page.get_text()
-                if page_text.strip():
-                    text += page_text + '\n'
-                else:
-                    mat = fitz.Matrix(2, 2)
-                    pix = page.get_pixmap(matrix=mat)
-                    img = Image.frombytes('RGB', [pix.width, pix.height], pix.samples)
-                    text += pytesseract.image_to_string(img) + '\n'
-        else:
-            img = Image.open(file.stream)
-            text = pytesseract.image_to_string(img)
-        extracted = parse_soil_report(text)
-        return jsonify({'success': True, 'extracted': extracted, 'raw_text': text[:800]})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == "__main__":
