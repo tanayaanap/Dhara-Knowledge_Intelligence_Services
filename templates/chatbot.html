@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>DHARA Chatbot 🌱</title>
+
+<style>
+body {
+    font-family: Arial;
+    background: #0f2027;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+/* Chat Box */
+.chat-container {
+    width: 400px;
+    height: 550px;
+    background: #1e2a38;
+    border-radius: 15px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Header */
+.chat-header {
+    background: #56ab2f;
+    padding: 12px;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* Messages */
+.chat-box {
+    flex: 1;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.message {
+    margin: 8px 0;
+    padding: 10px;
+    border-radius: 10px;
+    max-width: 75%;
+}
+
+.user {
+    background: #a8e063;
+    color: black;
+    margin-left: auto;
+}
+
+.bot {
+    background: #2c3e50;
+}
+
+/* Input */
+.chat-input {
+    display: flex;
+}
+
+.chat-input input {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    outline: none;
+}
+
+.chat-input button {
+    background: #56ab2f;
+    border: none;
+    padding: 10px;
+    color: white;
+    cursor: pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="chat-container">
+    <div class="chat-header">🌱 DHARA Assistant</div>
+
+    <div class="chat-box" id="chatBox"></div>
+
+    <div class="chat-input">
+        <input type="text" id="msg" placeholder="Ask about crops...">
+        <button onclick="sendMsg()">Send</button>
+    </div>
+</div>
+
+<script>
+async function sendMsg() {
+    const input = document.getElementById("msg");
+    const chatBox = document.getElementById("chatBox");
+
+    let message = input.value;
+    if (!message) return;
+
+    chatBox.innerHTML += `<div class="message user">${message}</div>`;
+    input.value = "";
+
+    let res = await fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({message})
+    });
+
+    let data = await res.json();
+
+    chatBox.innerHTML += `<div class="message bot">${data.reply}</div>`;
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+</script>
+
+</body>
+</html>

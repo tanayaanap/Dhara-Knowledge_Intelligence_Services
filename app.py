@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request, session, redirect, flash
 from models import db, User
 from flask_sqlalchemy import SQLAlchemy
+from flask import jsonify, request
 import numpy as np
 import joblib
 import pytesseract
@@ -10,6 +11,23 @@ import fitz  # PyMuPDF for PDF support
 import re
 import io
 import os
+
+from google import genai
+
+
+#genai.configure(api_key="AIzaSyDN_qtQrJ8XXsLR3b9TC4shL4rPJuTEnh4")
+#model_gemini = genai.GenerativeModel("gemini-1.5-flash")
+
+#client = genai.Client(api_key="AIzaSyBz2A_J6Jr72rsQf0UfOa459-x7cjCn7Sg")
+
+client = genai.Client(api_key="AIzaSyAOLcvL7ZTC5e4hB2zAD1e2CUsrVRNOgB8")
+
+models = client.models.list()
+
+#for m in models:
+#    print(m.name)
+
+
 
 app = Flask(__name__)
 
@@ -432,6 +450,38 @@ def upload():
 
     except Exception as e:
         return render_template("index.html", upload_error=f"Processing error: {str(e)}")
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    try:
+        data = request.json
+        user_message = data.get("message")
+
+        prompt = f"""
+        You are an AI assistant for farmers.
+        Help with crops, soil, fertilizers, weather, and farming advice.
+
+        User: {user_message}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        return jsonify({
+            "reply": response.text
+        })
+
+    except Exception as e:
+        return jsonify({
+            "reply": "Error: " + str(e)
+        })
+
+
+@app.route("/chatbot")
+def chatbot_page():
+    return render_template("chatbot.html")
 
 
 if __name__ == "__main__":
