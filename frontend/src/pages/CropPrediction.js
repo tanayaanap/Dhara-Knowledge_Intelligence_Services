@@ -128,25 +128,25 @@ function CropPrediction() {
   const alternatives = result?.results?.slice(1) || [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-slate-900 dark:to-slate-800 py-12">
       <div className="container mx-auto px-6">
         <div className="max-w-4xl mx-auto">
 
           {/* Header */}
-          <div className="text-center mb-10">
-            <div className="inline-block p-4 bg-green-100 rounded-full mb-4">
-              <span className="text-5xl">🌾</span>
+          <div className="text-center mb-10 animate-fade-in">
+            <div className="inline-block p-4 bg-gradient-to-br from-green-200 to-emerald-200 dark:from-green-900 dark:to-emerald-900 rounded-full mb-4 shadow-lg">
+              <span className="text-5xl animate-float">🌾</span>
             </div>
-            <h1 className="text-4xl font-bold text-gray-800 mb-4" data-testid="crop-prediction-title">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 dark:from-green-400 dark:to-emerald-400 bg-clip-text text-transparent mb-4" data-testid="crop-prediction-title">
               Crop Prediction
             </h1>
-            <p className="text-lg text-gray-600">
+            <p className="text-lg text-gray-600 dark:text-gray-300">
               Enter soil &amp; climate parameters manually, or upload a soil test report for auto-fill
             </p>
           </div>
 
           {/* Tab Switcher */}
-          <div className="flex gap-1.5 p-1.5 bg-gray-100 rounded-xl mb-8 max-w-xs mx-auto">
+          <div className="flex gap-1.5 p-1.5 bg-gray-100 dark:bg-slate-800 rounded-xl mb-8 max-w-xs mx-auto">
             {[
               { id: 'manual', label: '✏️ Manual Entry' },
               { id: 'upload', label: '📄 Upload Report' },
@@ -167,12 +167,12 @@ function CropPrediction() {
 
           {/* ── Manual Entry Tab ── */}
           {activeTab === 'manual' && (
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 dark:bg-slate-600/80 backdrop:blur-sm">
               <form onSubmit={handleSubmit}>
                 <div className="grid md:grid-cols-2 gap-6 mb-8">
                   {INPUT_FIELDS.map((field) => (
                     <div key={field.name}>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         {field.icon} {field.label} {field.unit && `(${field.unit})`}
                       </label>
                       <input
@@ -182,7 +182,7 @@ function CropPrediction() {
                         value={formData[field.name]}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-gray-800 dark:text-gray-500 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder={`Enter ${field.label.toLowerCase()}`}
                         data-testid={`input-${field.name}`}
                       />
@@ -212,8 +212,8 @@ function CropPrediction() {
 
           {/* ── Upload Report Tab ── */}
           {activeTab === 'upload' && (
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
-              <h2 className="text-lg font-bold text-gray-800 mb-1">Upload Soil Test Report</h2>
+            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 dark:bg-gray-600/80 backdrop-blur-sm">
+              <h2 className="text-lg font-bold text-gray-800 mb-1 dark:text-gray-200">Upload Soil Test Report</h2>
               <p className="text-sm text-gray-500 mb-6">
                 Upload an image or PDF of your soil test report — we'll extract the values automatically using OCR.
               </p>
@@ -222,8 +222,8 @@ function CropPrediction() {
               <div
                 className={`border-2 border-dashed rounded-2xl p-10 text-center cursor-pointer transition-all select-none ${
                   isDragging
-                    ? 'border-green-400 bg-green-50 scale-[1.01]'
-                    : 'border-gray-300 hover:border-green-400 hover:bg-gray-50'
+                    ? 'border-green-400 bg-green-50 scale-[1.01] dark:border-green-600 dark:bg-green-900/50 dark:text-gray-200'
+                    : 'border-gray-300 hover:border-green-400 hover:bg-gray-50 dark:border-slate-600 dark:hover:border-green-400 dark:hover:bg-slate-700/50 dark:text-gray-200'
                 }`}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -238,9 +238,9 @@ function CropPrediction() {
                   onChange={handleFileSelect}
                 />
                 <div className="text-5xl mb-4">📤</div>
-                <p className="text-gray-700 font-medium mb-1">Drag &amp; drop your soil report here</p>
-                <p className="text-gray-400 text-sm mb-4">or click to browse files</p>
-                <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                <p className="text-gray-700 font-medium mb-1 dark:text-gray-300">Drag &amp; drop your soil report here</p>
+                <p className="text-gray-400 text-sm mb-4 dark:text-gray-300">or click to browse files</p>
+                <span className="inline-block px-4 py-1.5 bg-green-100 text-green-700 rounded-full text-xs font-medium dark:bg-green-900/50 dark:text-gray-300">
                   Supports: JPG, PNG, PDF
                 </span>
               </div>

@@ -36,3 +36,44 @@ button, a, input, select {
 ::-webkit-scrollbar-thumb:hover {
     background: #059669;
 }
+
+/* Dark mode scrollbar */
+html.dark ::-webkit-scrollbar-track {
+    background: #1e293b;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+    background: #10b981;
+}
+
+/* Gradient text */
+.gradient-text {
+    background: linear-gradient(135deg, #10b981 0%, #f97316 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Glowing effect */
+.glow-effect {
+    box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+}
+
+html.dark .glow-effect {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.2);
+}
+
+/* Card hover effect */
+.card-hover {
+    transform: translateY(0);
+    transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(16, 185, 129, 0.2);
+}
+
+html.dark .card-hover:hover {
+    box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1);
+}

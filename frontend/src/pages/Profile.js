@@ -86,7 +86,7 @@ const Profile = ({ onUserUpdate, onLogout }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12">
+    <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-slate-900 dark:to-slate-700 py-12">
       <div className="container mx-auto px-6 max-w-3xl">
 
         {/* Back link */}
@@ -101,16 +101,16 @@ const Profile = ({ onUserUpdate, onLogout }) => {
         </Link>
 
         {/* Profile Hero Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 *:animate-fade-in dark:bg-slate-800/80 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
             {/* Avatar */}
-            <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-lg flex-shrink-0 select-none">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold shadow-lg flex-shrink-0 select-none dark:text-gray-100">
               {initials}
             </div>
 
             {/* User Info */}
             <div className="flex-1 text-center sm:text-left min-w-0">
-              <h1 className="text-2xl font-bold text-gray-800 mb-1 truncate">
+              <h1 className="text-2xl font-bold text-gray-800 mb-1 truncate dark:text-gray-100">
                 {profile?.name || 'Farmer'}
               </h1>
               <p className="text-gray-500 text-sm mb-4">{profile?.email}</p>
@@ -135,7 +135,7 @@ const Profile = ({ onUserUpdate, onLogout }) => {
             <div className="flex sm:flex-col gap-2 flex-shrink-0">
               <button
                 onClick={() => { setEditing(true); setMessage({ type: '', text: '' }) }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-all shadow-sm hover:shadow-md"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-all shadow-sm hover:shadow-md *:animate-pulse-glow dark:bg-green-400 dark:hover:bg-green-500"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -236,8 +236,8 @@ const Profile = ({ onUserUpdate, onLogout }) => {
         )}
 
         {/* Account Info Cards */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-5">Account Info</h2>
+        <div className="bg-white rounded-2xl shadow-xl p-8 dark:bg-slate-700/80 backdrop-blur-sm mb-6">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-5">Account Info</h2>
           <div className="grid sm:grid-cols-2 gap-4">
             {[
               { label: 'Name', value: profile?.name || '—', icon: '👤' },
@@ -245,19 +245,19 @@ const Profile = ({ onUserUpdate, onLogout }) => {
               { label: 'Location', value: profile?.location || '—', icon: '📍' },
               { label: 'Land Size', value: profile?.land_size || '—', icon: '📏' },
             ].map(({ label, value, icon }) => (
-              <div key={label} className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+              <div key={label} className="bg-gray-50 rounded-xl p-4 border border-gray-100 dark:bg-slate-500/80">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5 dark:text-gray-300">
                   {icon} {label}
                 </div>
-                <div className="text-gray-800 font-medium">{value}</div>
+                <div className="text-gray-800 font-medium dark:text-white">{value}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <h2 className="text-lg font-bold text-gray-800 mb-5">Quick Actions</h2>
+        <div className="bg-white rounded-2xl shadow-xl dark:bg-slate-700/80 backdrop-blur-sm p-8">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-200 mb-5">Quick Actions</h2>
           <div className="grid sm:grid-cols-3 gap-3">
             {[
               { to: '/crop-prediction', label: '🌾 Crop Prediction', desc: 'Get crop recommendations' },
@@ -267,12 +267,12 @@ const Profile = ({ onUserUpdate, onLogout }) => {
               <Link
                 key={to}
                 to={to}
-                className="group flex flex-col p-4 rounded-xl bg-green-50 hover:bg-green-100 border border-green-100 hover:border-green-200 transition-all"
+                className="group flex flex-col p-4 rounded-xl bg-green-50 hover:bg-green-100 border border-green-100 hover:border-green-200 transition-all dark:bg-gray-100/20 dark:hover:bg-gray-100/30"
               >
-                <span className="font-semibold text-green-700 text-sm mb-1 group-hover:translate-x-0.5 transition-transform">
+                <span className="font-semibold text-green-700 text-sm mb-1 group-hover:translate-x-0.5 transition-transform dark:text-gray-50">
                   {label}
                 </span>
-                <span className="text-xs text-gray-500">{desc}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-100">{desc}</span>
               </Link>
             ))}
           </div>

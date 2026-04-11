@@ -50,7 +50,7 @@ function Fertilizer() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white py-12">
+        <div className="min-h-screen bg-gradient-to-b from-purple-50 to-white dark:from-slate-900 dark:to-slate-800 py-12">
         <div className="container mx-auto px-6">
             <div className="max-w-4xl mx-auto">
             {/* Header */}
@@ -58,21 +58,21 @@ function Fertilizer() {
                 <div className="inline-block p-4 bg-purple-100 rounded-full mb-4">
                 <span className="text-5xl">🧪</span>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4" data-testid="fertilizer-title">
+                <h1 className="text-4xl font-bold text-gray-800 mb-4 dark:text-gray-200" data-testid="fertilizer-title">
                 Fertilizer Recommendation
                 </h1>
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-gray-600 dark:text-gray-300">
                 Get personalized fertilizer recommendations for optimal crop growth
                 </p>
             </div>
 
             {/* Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 dark:bg-gray-600/80 backdrop-blur-sm">
                 <form onSubmit={handleSubmit}>
                 {/* Crop and Soil Selection */}
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                     <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🌱 Crop Type
                     </label>
                     <select
@@ -80,7 +80,7 @@ function Fertilizer() {
                         value={formData.crop_type}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-200 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         data-testid="select-crop-type"
                     >
                         <option value="">Choose a crop...</option>
@@ -90,7 +90,7 @@ function Fertilizer() {
                     </select>
                     </div>
                     <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🏞️ Soil Type
                     </label>
                     <select
@@ -98,7 +98,7 @@ function Fertilizer() {
                         value={formData.soil_type}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         data-testid="select-soil-type"
                     >
                         <option value="">Choose soil type...</option>
@@ -111,10 +111,10 @@ function Fertilizer() {
 
                 {/* NPK Values */}
                 <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Current Soil Nutrient Levels</h3>
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4 dark:text-gray-200">Current Soil Nutrient Levels</h3>
                     <div className="grid md:grid-cols-3 gap-6">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🔵 Nitrogen (N) - kg/ha
                         </label>
                         <input
@@ -124,13 +124,13 @@ function Fertilizer() {
                         value={formData.nitrogen}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="0-100"
                         data-testid="input-nitrogen"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🟠 Phosphorus (P) - kg/ha
                         </label>
                         <input
@@ -140,13 +140,13 @@ function Fertilizer() {
                         value={formData.phosphorus}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="0-100"
                         data-testid="input-phosphorus"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🟣 Potassium (K) - kg/ha
                         </label>
                         <input
@@ -156,7 +156,7 @@ function Fertilizer() {
                         value={formData.potassium}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="0-100"
                         data-testid="input-potassium"
                         />

@@ -9,6 +9,8 @@ import AboutUs from './pages/AboutUs';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import AnimatedBackground from './components/AnimatedBackground';
+import DarkModeToggle from './components/DarkModeToggle';
 
 const NAV_LINKS = [
   { to: '/', label: 'Dashboard', testId: 'nav-dashboard' },
@@ -37,7 +39,7 @@ function Navigation({ user, isAuthenticated }) {
     .slice(0, 2);
 
   return (
-    <nav className="bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100 sticky top-0 z-50">
+    <nav className="bg-white/95 backdrop-blur-sm shadow-sm border-b border-gray-100 sticky top-0 z-50 dark:bg-slate-900/80 dark:border-slate-700/50">
       <div className="container mx-auto px-6">
         <div className="flex items-center justify-between h-16">
 
@@ -46,7 +48,7 @@ function Navigation({ user, isAuthenticated }) {
             <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
               <span className="text-lg">🌾</span>
             </div>
-            <span className="text-xl font-bold text-gray-800 tracking-tight">DharaAI</span>
+            <span className="text-xl font-bold text-gray-800 tracking-tight dark:text-gray-50">DharaAI</span>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -56,7 +58,7 @@ function Navigation({ user, isAuthenticated }) {
                 key={to}
                 to={to}
                 data-testid={testId}
-                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-all dark:text-gray-100 ${
                   isActive(to)
                     ? 'bg-green-500 text-white shadow-sm'
                     : 'text-gray-600 hover:bg-green-50 hover:text-green-700'
@@ -72,12 +74,12 @@ function Navigation({ user, isAuthenticated }) {
             {isAuthenticated ? (
               <Link
                 to="/profile"
-                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 hover:bg-green-100 border border-green-100 hover:border-green-200 transition-all group"
+                className="flex items-center gap-2 px-3 py-2 rounded-xl bg-green-50 hover:bg-green-100 border border-green-100 hover:border-green-200 transition-all group dark:bg-gray-100/20 dark:hover:bg-gray-100/30"
               >
                 <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 select-none">
                   {initials}
                 </div>
-                <span className="text-green-700 font-medium text-sm max-w-[110px] truncate">
+                <span className="text-green-700 font-medium text-sm max-w-[110px] truncate dark:text-gray-50">
                   {user?.name || user?.email}
                 </span>
                 <svg className="w-3.5 h-3.5 text-green-400 group-hover:translate-x-0.5 transition-transform flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,7 +200,9 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen">
+      <div className="min-h-screen relative">
+        <AnimatedBackground />
+        <DarkModeToggle />
         <Navigation user={user} isAuthenticated={isAuthenticated} />
         <Routes>
           <Route path="/" element={<Dashboard user={user} />} />

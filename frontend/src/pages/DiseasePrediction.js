@@ -81,7 +81,7 @@ function DiseasePrediction() {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12">
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-slate-900 dark:to-slate-800 py-12">
         <div className="container mx-auto px-6">
             <div className="max-w-4xl mx-auto">
             {/* Header */}
@@ -89,20 +89,20 @@ function DiseasePrediction() {
                 <div className="inline-block p-4 bg-blue-100 rounded-full mb-4">
                 <span className="text-5xl">🔬</span>
                 </div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4" data-testid="disease-prediction-title">
+                <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
                 Disease Prediction
                 </h1>
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-gray-600 dark:text-gray-300">
                 Identify crop diseases early with AI-powered analysis
                 </p>
             </div>
 
             {/* Form */}
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 mb-8">
                 <form onSubmit={handleSubmit}>
                 {/* Crop Type Selection */}
                 <div className="mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
                     🌱 Select Crop Type
                     </label>
                     <select
@@ -110,7 +110,7 @@ function DiseasePrediction() {
                     value={formData.crop_type}
                     onChange={handleChange}
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:bg-slate-700 dark:border-slate-600 dark:text-white"
                     data-testid="select-crop-type"
                     >
                     <option value="">Choose a crop...</option>
@@ -123,7 +123,7 @@ function DiseasePrediction() {
                 {/* Environmental Conditions */}
                 <div className="grid md:grid-cols-2 gap-6 mb-6">
                     <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
                         🌡️ Temperature (°C)
                     </label>
                     <input
@@ -133,13 +133,13 @@ function DiseasePrediction() {
                         value={formData.temperature}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Enter temperature"
                         data-testid="input-temperature"
                     />
                     </div>
                     <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
                         💧 Humidity (%)
                     </label>
                     <input
@@ -149,7 +149,7 @@ function DiseasePrediction() {
                         value={formData.humidity}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                         placeholder="Enter humidity"
                         data-testid="input-humidity"
                     />
@@ -158,7 +158,7 @@ function DiseasePrediction() {
 
                 {/* Symptoms Selection */}
                 <div className="mb-8">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 mb-3 dark:text-gray-300">
                     🩺 Select Symptoms (choose all that apply)
                     </label>
                     <div className="grid md:grid-cols-3 gap-3">
@@ -170,7 +170,7 @@ function DiseasePrediction() {
                         className={`px-4 py-3 rounded-lg border-2 font-medium transition-all ${
                             formData.symptoms.includes(symptom)
                             ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+                            : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600'
                         }`}
                         data-testid={`symptom-${symptom.toLowerCase().replace(/s/g, '-')}`}
                         >

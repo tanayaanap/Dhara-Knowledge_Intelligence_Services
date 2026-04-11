@@ -50,20 +50,20 @@ function AboutUs() {
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12">
+        <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-6xl mx-auto px-6">
 
             {/* Hero */}
             <div className="text-center mb-16">
-            <div className="inline-block p-6 bg-green-100 rounded-full mb-6">
+            <div className="inline-block p-6 bg-green-100 rounded-full mb-6 dark:text-gray-200">
                 <span className="text-6xl">🌾</span>
             </div>
 
-            <h1 className="text-5xl font-bold text-gray-800 mb-6">
+            <h1 className="text-5xl font-bold text-gray-800 mb-6 dark:text-gray-200">
                 About <span className="text-green-600">DHARA</span>
             </h1>
 
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed dark:text-gray-400">
                 Empowering farmers with AI to make smarter decisions, increase yields,
                 and build a sustainable future for agriculture.
             </p>
@@ -82,7 +82,7 @@ function AboutUs() {
 
             {/* Features */}
             <div className="mb-16">
-            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center dark:text-gray-200">
                 What We Do
             </h2>
 
@@ -90,13 +90,13 @@ function AboutUs() {
                 {features.map((feature, i) => (
                 <div
                     key={i}
-                    className="bg-white rounded-xl shadow-lg p-8 hover:shadow-2xl transition"
+                    className="bg-white rounded-xl shadow-lg p-8 hover:shadow-2xl transition dark:bg-slate-700/75"
                 >
                     <div className="text-5xl mb-4">{feature.icon}</div>
-                    <h3 className="text-2xl font-bold mb-3">
+                    <h3 className="text-2xl font-bold mb-3 dark:text-gray-200">
                     {feature.title}
                     </h3>
-                    <p className="text-gray-600">{feature.description}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{feature.description}</p>
                 </div>
                 ))}
             </div>
@@ -104,7 +104,7 @@ function AboutUs() {
 
             {/* Team */}
             <div className="mb-16">
-            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center dark:text-gray-200">
                 Our Expertise
             </h2>
 
@@ -112,25 +112,25 @@ function AboutUs() {
                 {teamMembers.map((member, i) => (
                 <div
                     key={i}
-                    className="bg-white rounded-xl shadow-lg p-8 text-center hover:scale-105 transition"
+                    className="bg-white rounded-xl shadow-lg p-8 text-center hover:scale-105 transition dark:bg-slate-700/75"
                 >
                     <div className="text-6xl mb-4">{member.icon}</div>
                     <h3 className="text-xl font-bold mb-3">
                     {member.role}
                     </h3>
-                    <p className="text-gray-600">{member.description}</p>
+                    <p className="text-gray-600 dark:text-gray-300">{member.description}</p>
                 </div>
                 ))}
             </div>
             </div>
 
             {/* Tech */}
-            <div className="bg-gray-50 rounded-3xl p-12 mb-16">
+            <div className="bg-gray-50 rounded-3xl p-12 mb-16 dark:bg-slate-600/75 backdrop-blur-sm">
             <h2 className="text-3xl font-bold text-center mb-8">
                 Powered by Technology
             </h2>
 
-            <div className="grid md:grid-cols-4 gap-6 text-center">
+            <div className="grid md:grid-cols-4 gap-6 text-center dark:text-gray-300">
                 {[
                 ["🤖", "Machine Learning"],
                 ["📊", "Big Data"],
@@ -146,8 +146,8 @@ function AboutUs() {
             </div>
 
             {/* Impact */}
-            <div className="bg-white rounded-3xl shadow-xl p-12 mb-16 text-center">
-            <h2 className="text-3xl font-bold mb-8">Our Impact</h2>
+            <div className="bg-white rounded-3xl shadow-xl p-12 mb-16 text-center dark:bg-slate-600/75 backdrop-blur-sm">
+            <h2 className="text-3xl font-bold mb-8 dark:text-gray-200">Our Impact</h2>
 
             <div className="grid md:grid-cols-3 gap-8">
                 <div>
@@ -166,11 +166,11 @@ function AboutUs() {
             </div>
 
             {/* Vision */}
-            <div className="text-center bg-green-50 rounded-3xl p-12">
-            <h2 className="text-3xl font-bold mb-6">
+            <div className="text-center bg-green-50 rounded-3xl p-12 dark:bg-slate-600/50">
+            <h2 className="text-3xl font-bold mb-6 dark:text-gray-200">
                 Our Vision
             </h2>
-            <p className="max-w-3xl mx-auto mb-6">
+            <p className="max-w-3xl mx-auto mb-6 dark:text-gray-300">
                 A world where every farmer has access to intelligent insights for
                 better productivity and sustainability.
             </p>
