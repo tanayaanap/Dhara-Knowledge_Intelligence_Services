@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
-function Dashboard() {
+function Dashboard({ user }) {
     const [stats, setStats] = useState({ total: 0, crop: 0, disease: 0, fertilizer: 0 });
 
     useEffect(() => {
@@ -13,7 +13,7 @@ function Dashboard() {
 
     const fetchStats = async () => {
         try {
-        const response = await axios.get(`${BACKEND_URL}/api/stats`);
+        const response = await axios.get(`${BACKEND_URL}/api/stats`, { withCredentials: true });
         setStats(response.data);
         } catch (error) {
         console.error('Error fetching stats:', error);
@@ -56,7 +56,7 @@ function Dashboard() {
                 Welcome to <span className="text-green-600">DharaAI</span>
             </h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8" data-testid="dashboard-subtitle">
-                Empowering farmers with artificial intelligence for smarter, sustainable agriculture
+                {user ? `Hi ${user.name || user.email}! Empowering farmers with artificial intelligence for smarter, sustainable agriculture` : 'Empowering farmers with artificial intelligence for smarter, sustainable agriculture'}
             </p>
             
             {/* Stats Cards */}

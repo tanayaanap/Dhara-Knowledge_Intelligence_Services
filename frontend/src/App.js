@@ -1,12 +1,14 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import CropPrediction from './pages/CropPrediction';
 import DiseasePrediction from './pages/DiseasePrediction';
 import Fertilizer from './pages/Fertilizer';
 import AboutUs from './pages/AboutUs';
+import Login from './pages/Login';
+import Register from './pages/Register';
 
-function Navigation() {
+function Navigation({ user, isAuthenticated }) {
     const location = useLocation();
     
     const isActive = (path) => {
@@ -24,7 +26,7 @@ function Navigation() {
                 <span className="text-2xl font-bold text-gray-800">DharaAI</span>
             </Link>
             
-            <div className="hidden md:flex space-x-1">
+            <div className="hidden md:flex items-center space-x-1">
                 <Link
                 to="/"
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
@@ -80,6 +82,18 @@ function Navigation() {
                 >
                 About Us
                 </Link>
+                {isAuthenticated ? (
+                    <span className="px-4 py-2 rounded-lg bg-green-50 text-green-700 font-medium">
+                        {user?.name || user?.email}
+                    </span>
+                    ) : (
+                    <Link
+                        to="/login"
+                    className="px-4 py-2 rounded-lg bg-green-500 text-white font-medium transition-all hover:bg-green-600"
+                    >
+                        Login
+                    </Link>
+                )}
             </div>
             
             {/* Mobile menu button */}
@@ -95,16 +109,44 @@ function Navigation() {
     }
 
     function App() {
+        const [user, setUser] = useState(null)
+        const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+        useEffect(() => {
+            const fetchUser = async () => {
+            try {
+                const response = await fetch('/api/user', {
+                credentials: 'include'
+                })
+                const data = await response.json()
+                if (response.ok && data.authenticated) {
+                setUser({ email: data.email, name: data.name || '' })
+                setIsAuthenticated(true)
+                } else {
+                setUser(null)
+                setIsAuthenticated(false)
+                }
+            } catch (error) {
+                setUser(null)
+                setIsAuthenticated(false)
+            }
+            }
+
+            fetchUser()
+        }, [])
+
     return (
         <Router>
         <div className="min-h-screen">
-            <Navigation />
+            <Navigation user={user} isAuthenticated={isAuthenticated} />
             <Routes>
-            <Route path="/" element={<Dashboard />} />
+            <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/crop-prediction" element={<CropPrediction />} />
             <Route path="/disease-prediction" element={<DiseasePrediction />} />
             <Route path="/fertilizer" element={<Fertilizer />} />
             <Route path="/about" element={<AboutUs />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             </Routes>
         </div>
         </Router>

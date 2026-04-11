@@ -73,17 +73,30 @@ def chat():
     return jsonify({"reply": reply})
 
 # ---------------- LOGIN (simple API version) ----------------
-@app.route("/api/login", methods=["POST"])
-def login():
-    data = request.json
-    email = data.get("email")
-    password = data.get("password")
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    data = request.get_json()
+
+    email = (data.get('email') or '').strip().lower()
+    password = (data.get('password') or '').strip()
+
+    if not email or not password:
+        return jsonify({"success": False, "error": "Email and password required"}), 400
 
     user = User.query.filter_by(email=email).first()
 
     if user and user.check_password(password):
-        session["user_id"] = user.id
-        return jsonify({"success": True, "user": user.email})
+        session['user_id'] = user.id
+        session['email'] = user.email
+
+        return jsonify({
+            "success": True,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name
+            }
+        })
 
     return jsonify({"success": False, "error": "Invalid credentials"}), 401
 
@@ -106,6 +119,18 @@ def register():
 
     return jsonify({"success": True})
 
+# ---------------- STATS ----------------
+@app.route("/api/stats")
+def stats():
+    user_count = User.query.count()
+    return jsonify({
+        "total": user_count,
+        "crop": 0,
+        "disease": 0,
+        "fertilizer": 0
+    })
+
+
 # ---------------- USER ----------------
 @app.route("/api/user")
 def user():
@@ -113,7 +138,11 @@ def user():
         return jsonify({"authenticated": False})
 
     u = User.query.get(session["user_id"])
-    return jsonify({"authenticated": True, "email": u.email})
+    return jsonify({
+        "authenticated": True,
+        "email": u.email,
+        "name": u.name
+    })
 
 
 if __name__ == "__main__":
