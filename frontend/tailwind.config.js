@@ -9,6 +9,10 @@ module.exports = {
         primary: '#10b981',
         secondary: '#059669',
         accent: '#34d399',
+        'dhara-green': '#10b981',
+      },
+      fontFamily: {
+        baloo: ["'Baloo 2'", 'cursive'],
       },
     },
   },

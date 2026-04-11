@@ -6,6 +6,11 @@ from chatbot import get_response
 import numpy as np
 import joblib
 import os
+import fitz
+import pytesseract
+from PIL import Image
+import io
+import re
 
 
 app = Flask(__name__)
@@ -25,6 +30,10 @@ with app.app_context():
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 model = joblib.load(os.path.join(BASE_DIR, "ml/xgboost_model.pkl"))
 le = joblib.load(os.path.join(BASE_DIR, "ml/label_encoder.pkl"))
+
+# ---------------- TESSERACT CONFIG ----------------
+# Set Tesseract path (update this path after installation)
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 # ---------------- CORS FIX (IMPORTANT FOR REACT) ----------------
 CORS(app, supports_credentials=True)
@@ -143,6 +152,97 @@ def user():
         "email": u.email,
         "name": u.name
     })
+
+
+# ---------------- PROFILE ----------------
+@app.route('/api/profile', methods=['GET'])
+def get_profile():
+    if 'user_id' not in session:
+        return jsonify({'authenticated': False}), 401
+    u = User.query.get(session['user_id'])
+    return jsonify({
+        'name': u.name or '',
+        'email': u.email,
+        'location': u.location or '',
+        'land_size': u.land_size or ''
+    })
+
+
+@app.route('/api/profile', methods=['PUT'])
+def update_profile():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'error': 'Not authenticated'}), 401
+    u = User.query.get(session['user_id'])
+    data = request.get_json()
+    if 'name' in data:
+        u.name = data['name']
+    if 'location' in data:
+        u.location = data['location']
+    if 'land_size' in data:
+        u.land_size = data['land_size']
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+# ---------------- LOGOUT ----------------
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({'success': True})
+
+
+# ---------------- OCR SCAN ----------------
+def parse_soil_report(text):
+    t = text.lower()
+    result = {}
+    field_patterns = {
+        'nitrogen':    [r'nitrogen\D{0,15}(\d+\.?\d*)', r'(?<![a-z])n\s*[:\-=]\s*(\d+\.?\d*)'],
+        'phosphorus':  [r'phosphorus\D{0,15}(\d+\.?\d*)', r'(?<![a-z])p\s*[:\-=]\s*(\d+\.?\d*)'],
+        'potassium':   [r'potassium\D{0,15}(\d+\.?\d*)', r'(?<![a-z])k\s*[:\-=]\s*(\d+\.?\d*)'],
+        'ph':          [r'ph\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'temperature': [r'temp(?:erature)?\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'humidity':    [r'humidity\s*[:\-=]?\s*(\d+\.?\d*)', r'moisture\s*[:\-=]?\s*(\d+\.?\d*)'],
+        'rainfall':    [r'rainfall\s*[:\-=]?\s*(\d+\.?\d*)', r'precipitation\s*[:\-=]?\s*(\d+\.?\d*)'],
+    }
+    for key, pats in field_patterns.items():
+        for pat in pats:
+            m = re.search(pat, t)
+            if m:
+                try:
+                    result[key] = float(m.group(1))
+                except ValueError:
+                    pass
+                break
+    return result
+
+
+@app.route('/api/ocr-scan', methods=['POST'])
+def ocr_scan():
+    if 'file' not in request.files:
+        return jsonify({'success': False, 'error': 'No file provided'}), 400
+    file = request.files['file']
+    filename = (file.filename or '').lower()
+    text = ''
+    try:
+        if filename.endswith('.pdf'):
+            pdf_bytes = file.read()
+            doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+            for page in doc:
+                page_text = page.get_text()
+                if page_text.strip():
+                    text += page_text + '\n'
+                else:
+                    mat = fitz.Matrix(2, 2)
+                    pix = page.get_pixmap(matrix=mat)
+                    img = Image.frombytes('RGB', [pix.width, pix.height], pix.samples)
+                    text += pytesseract.image_to_string(img) + '\n'
+        else:
+            img = Image.open(file.stream)
+            text = pytesseract.image_to_string(img)
+        extracted = parse_soil_report(text)
+        return jsonify({'success': True, 'extracted': extracted, 'raw_text': text[:800]})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 if __name__ == "__main__":
