@@ -52,18 +52,25 @@ Dhara-Knowledge_Intelligence_Services/
 │   ├── app.py
 │   ├── models.py
 │   ├── chatbot.py
-│   ├── xgboost_model.pkl
-│   ├── label_encoder.pkl
+│   ├── Untitled.ipynb
 │   ├── requirements.txt
 │   ├── uploads/
+│   ├── routes/
+│   ├── utils/
+|   ├── ml/
+|   |   ├── Crop_recommendation.csv
+|   |   ├── label_encoder.pkl
+|   |   ├── xgboost_model.pkl
 │   └── instance/
+|       └── dhara.db
 │
 ├── frontend/
+│   ├── public/
 │   ├── src/
 │   │   ├── pages/
 │   │   ├── components/
-│   │   ├── App.jsx
-│   │   ├── main.jsx
+│   │   ├── App.js
+│   │   ├── index.js
 │   │   └── index.css
 │   ├── index.html
 │   ├── vite.config.js
