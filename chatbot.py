@@ -1,6 +1,7 @@
 import re
+import google.generativeai as genai
 
-# ---------- Knowledge Base ----------
+# ---------- Knowledge Base (Fallback) ----------
 
 RESPONSES = {
     "greeting": {
@@ -44,7 +45,7 @@ RESPONSES = {
         "response": "🌽 **Maize Farming Tips:**\n\n• Grows best in warm climate (21–27°C) with moderate rainfall.\n• Ideal soil: Well-drained sandy loam.\n• pH range: 5.8–7.0\n• Key nutrients: High nitrogen requirement.\n• Watch out for: Fall armyworm, stem borer.\n• Season: Kharif and spring seasons."
     },
     "cotton": {
-        "keywords": ["cotton", "kapas", "kapas"],
+        "keywords": ["cotton", "kapas"],
         "response": "🌿 **Cotton Farming Tips:**\n\n• Grows best in warm climate (21–35°C), requires long frost-free period.\n• Ideal soil: Deep black (regur) soil or sandy loam.\n• pH range: 6–8\n• Key nutrients: NPK balanced; potassium important for fibre quality.\n• Watch out for: Bollworm, whitefly.\n• Season: Kharif (April–December)."
     },
     "soil_types": {
@@ -73,19 +74,68 @@ DEFAULT_RESPONSE = (
     "Try asking something like: *'Which crop is best for black soil?'* or *'How do I manage aphids?'*"
 )
 
-# ---------- Core Matching Logic ----------
+# ---------- Gemini Setup ----------
 
-def get_response(user_message: str) -> str:
+SYSTEM_PROMPT = """You are DHARA Assistant, an expert AI farming advisor for Indian farmers.
+You specialize in:
+- Crop recommendations based on soil, climate, and season
+- Soil health, pH levels, and soil types found in India
+- Fertilizer advice (NPK, organic, urea, DAP, MOP)
+- Irrigation methods (drip, sprinkler, flood)
+- Weather and seasonal farming tips (Kharif, Rabi)
+- Pest and disease management using both organic and chemical methods
+- Specific crops: Rice, Wheat, Maize, Cotton, Millets, Sugarcane, and more
+
+Always give practical, concise advice suited for Indian farming conditions.
+Use emojis to make responses friendly and readable.
+If a question is completely unrelated to farming or agriculture, politely redirect the user back to farming topics.
+Keep responses clear and not overly long."""
+
+
+def init_gemini(api_key: str):
     """
-    Match user message against keyword sets and return appropriate response.
-    Falls back to DEFAULT_RESPONSE if no match found.
+    Initialize Gemini model and return a chat session.
+    Called once at app startup.
     """
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(
+        model_name="gemini-2.0-flash",
+        system_instruction=SYSTEM_PROMPT
+    )
+    chat_session = model.start_chat(history=[])
+    return chat_session
+
+
+def _keyword_fallback(user_message: str) -> str:
+    """Keyword-based fallback if Gemini is unavailable."""
     message = user_message.lower().strip()
-    message = re.sub(r"[^\w\s]", " ", message)  # remove punctuation
-
+    message = re.sub(r"[^\w\s]", " ", message)
     for intent, data in RESPONSES.items():
         for keyword in data["keywords"]:
             if keyword in message:
                 return data["response"]
-
     return DEFAULT_RESPONSE
+
+
+def get_response(chat_session, user_message: str) -> str:
+    """
+    Get a response from Gemini. Falls back to keyword matching if Gemini fails.
+    
+    Args:
+        chat_session: The Gemini chat session returned by init_gemini()
+        user_message: The user's message string
+    
+    Returns:
+        A response string from Gemini or the keyword fallback
+    """
+    if not user_message or not user_message.strip():
+        return "Please type a message so I can help you! 🌱"
+
+    try:
+        response = chat_session.send_message(user_message)
+        return response.text
+
+    except Exception as e:
+        if "quota" in str(e).lower():
+            return _keyword_fallback(user_message)
+        return f"ERROR: {str(e)}"

@@ -1,8 +1,9 @@
-
+from dotenv import load_dotenv
+load_dotenv()
 from flask import Flask, render_template, request, session, redirect, flash
 from models import db, User
 from flask_sqlalchemy import SQLAlchemy
-from chatbot import get_response
+from chatbot import init_gemini, get_response
 from flask import jsonify
 import numpy as np
 import joblib
@@ -16,6 +17,10 @@ import os
 app = Flask(__name__)
 
 app.secret_key = "dhara_secret_123"
+
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+print("DEBUG KEY:", GEMINI_KEY)
+chat_session = init_gemini(GEMINI_KEY)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dhara.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -31,6 +36,10 @@ pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tessera
 
 # ── Load trained model + encoder ─────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+fert_model = joblib.load(os.path.join(BASE_DIR, 'fertilizer_model.pkl'))
+le_soil = joblib.load(os.path.join(BASE_DIR, 'le_soil.pkl'))
+le_crop = joblib.load(os.path.join(BASE_DIR, 'le_crop.pkl'))
+le_fert = joblib.load(os.path.join(BASE_DIR, 'le_fert.pkl'))
 model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
 le = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
 
@@ -439,8 +448,45 @@ def upload():
 def chat():
     data = request.get_json()
     user_message = data.get('message', '')
-    reply = get_response(user_message)
+    reply = get_response(chat_session, user_message)
     return jsonify({'reply': reply})
+
+@app.route('/predict_fertilizer', methods=['POST'])
+def predict_fertilizer():
+    try:
+        temperature = float(request.form['temperature'])
+        humidity = float(request.form['humidity'])
+        moisture = float(request.form['moisture'])
+        soil_type = request.form['soil_type']
+        crop_type = request.form['crop_type']
+        nitrogen = float(request.form['nitrogen'])
+        potassium = float(request.form['potassium'])
+        phosphorous = float(request.form['phosphorous'])
+
+        soil_enc = le_soil.transform([soil_type])[0]
+        crop_enc = le_crop.transform([crop_type])[0]
+
+        sample = np.array([[temperature, humidity, moisture, soil_enc, crop_enc, nitrogen, potassium, phosphorous]])
+        prediction = fert_model.predict(sample)
+        fertilizer = le_fert.inverse_transform(prediction)[0]
+
+        quantity_guide = {
+            'Urea': '100-150 kg/acre',
+            'DAP': '50-60 kg/acre',
+            'MOP': '40-50 kg/acre',
+            '14-35-14': '75-100 kg/acre',
+            '28-28': '80-100 kg/acre',
+            '17-17-17': '75-100 kg/acre',
+            '20-20': '75-100 kg/acre',
+            '10-26-26': '75-100 kg/acre',
+        }
+        quantity = quantity_guide.get(fertilizer, '50-100 kg/acre')
+
+        return render_template('index.html',
+            fertilizer_result=fertilizer,
+            fertilizer_quantity=quantity)
+    except Exception as e:
+        return render_template('index.html', fertilizer_error=str(e))
 
 
 if __name__ == "__main__":
