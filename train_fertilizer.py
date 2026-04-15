@@ -20,6 +20,7 @@ y = df['Fertilizer Name']
 from sklearn.model_selection import train_test_split,cross_val_score
 from sklearn.metrics import accuracy_score
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
 
 # Split data
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -36,16 +37,23 @@ dt = DecisionTreeClassifier(random_state=42)
 dt.fit(X_train, y_train)
 dt_pred = dt.predict(X_test)
 
+
+knn = KNeighborsClassifier(n_neighbors=5)
+knn.fit(X_train, y_train)
+knn_pred = knn.predict(X_test)
+
 # ---------------- ACCURACY ----------------
 print("Random Forest Accuracy:", accuracy_score(y_test, y_pred))
 print("Decision Tree Accuracy:", accuracy_score(y_test, dt_pred))
+print("KNN Accuracy:", accuracy_score(y_test, knn_pred))
 
 # ---------------- CROSS VALIDATION ----------------
 rf_cv = cross_val_score(model, X, y, cv=5)
 dt_cv = cross_val_score(dt, X, y, cv=5)
-
+knn_cv = cross_val_score(knn, X, y, cv=5)
 print("Random Forest CV Accuracy:", rf_cv.mean())
 print("Decision Tree CV Accuracy:", dt_cv.mean())
+print("KNN CV:", knn_cv.mean())
 
 joblib.dump(model, 'fertilizer_model.pkl')
 joblib.dump(le_soil, 'le_soil.pkl')
