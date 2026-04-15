@@ -2,7 +2,7 @@ from flask_cors import CORS
 from flask import Flask, request, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from models import db, User
-from chatbot import get_response
+from google import genai
 import numpy as np
 import joblib
 import os
@@ -11,6 +11,17 @@ import pytesseract
 from PIL import Image
 import io
 import re
+
+#genai.configure(api_key="AIzaSyAOLcvL7ZTC5e4hB2zAD1e2CUsrVRNOgB8")
+
+client = genai.Client(api_key="AIzaSyAgAQMm36VUjgdQqixbzYUSnxjs1GMhjc8")
+
+#model = genai.GenerativeModel("gemini-1.5-flash")
+
+models = client.models.list()
+
+for m in models:
+    print(m.name)
 
 
 app = Flask(__name__)
@@ -57,8 +68,8 @@ def predict_crop(N, P, K, ph, temperature, humidity, rainfall):
         results = []
         for i in top_indices:
             results.append({
-                "crop": str(le.inverse_transform([i])[0]),  # ensure string
-                "probability": float(round(float(probs[i]) * 100, 2))  # 🔥 FIX
+                "crop": str(le.inverse_transform([i])[0]), 
+                "probability": float(round(float(probs[i]) * 100, 2))  
             })
 
         return results
@@ -73,7 +84,7 @@ def predict_crop(N, P, K, ph, temperature, humidity, rainfall):
 def predict():
     try:
         data = request.get_json()
-        print("Incoming data:", data)  # 🔥 DEBUG
+        print("Incoming data:", data)  
 
         N = safe_float(data.get("N"))
         P = safe_float(data.get("P"))
@@ -162,19 +173,44 @@ def ocr_scan():
         return jsonify({
             'success': True,
             'extracted': extracted,
-            'results': results   # 🔥 THIS FIXES YOUR ISSUE
+            'results': results   
         })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # ---------------- CHAT ----------------
+
+
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    data = request.json
-    msg = data.get("message", "")
-    reply = get_response(msg)
-    return jsonify({"reply": reply})
+    try:
+        data = request.json
+        user_message = data.get("message", "")
+
+        prompt = f"""
+        You are an AI assistant for farmers.
+        Help with crops, soil, fertilizers, weather, and farming advice.
+
+        User: {user_message}
+        """
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+
+        return jsonify({
+            "reply": response.text
+        })
+
+    except Exception as e:
+        print("Gemini ERROR:", e)   # 🔥 IMPORTANT
+        return jsonify({
+            "reply": "Error: " + str(e)
+        })
+
+
 
 # ---------------- LOGIN (simple API version) ----------------
 @app.route('/api/login', methods=['POST'])

@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 
-const Login = () => {
+const Login = ({ onLogin }) => {
+
   const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -22,6 +23,7 @@ const Login = () => {
       const data = await response.json()
 
       if (response.ok && data.success) {
+        await onLogin();
         navigate('/')
       } else {
         setError(data.error || 'Invalid credentials')

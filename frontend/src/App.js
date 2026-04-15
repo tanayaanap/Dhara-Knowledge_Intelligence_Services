@@ -9,6 +9,9 @@ import AboutUs from './pages/AboutUs';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+import Chatbot from './pages/Chatbot';
+import farmBg from "./assets/farm.jpg";
+
 
 const NAV_LINKS = [
   { to: '/', label: 'Dashboard', testId: 'nav-dashboard' },
@@ -206,13 +209,15 @@ function App() {
           <Route path="/disease-prediction" element={<DiseasePrediction />} />
           <Route path="/fertilizer" element={<Fertilizer />} />
           <Route path="/about" element={<AboutUs />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login onLogin={refreshUser} />} />
+
           <Route path="/register" element={<Register />} />
           <Route
             path="/profile"
             element={<Profile onUserUpdate={refreshUser} onLogout={handleLogout} />}
           />
         </Routes>
+        <Chatbot />
       </div>
     </Router>
   );
