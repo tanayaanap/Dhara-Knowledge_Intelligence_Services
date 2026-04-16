@@ -55,6 +55,34 @@ print("Random Forest CV Accuracy:", rf_cv.mean())
 print("Decision Tree CV Accuracy:", dt_cv.mean())
 print("KNN CV:", knn_cv.mean())
 
+from sklearn.metrics import precision_score, recall_score, f1_score
+import numpy as np
+
+# -------- Random Forest --------
+rf_prec = precision_score(y_test, y_pred, average='macro')
+rf_rec  = recall_score(y_test, y_pred, average='macro')
+rf_f1   = f1_score(y_test, y_pred, average='macro')
+
+# -------- Decision Tree --------
+dt_prec = precision_score(y_test, dt_pred, average='macro')
+dt_rec  = recall_score(y_test, dt_pred, average='macro')
+dt_f1   = f1_score(y_test, dt_pred, average='macro')
+
+# -------- KNN --------
+knn_prec = precision_score(y_test, knn_pred, average='macro')
+knn_rec  = recall_score(y_test, knn_pred, average='macro')
+knn_f1   = f1_score(y_test, knn_pred, average='macro')
+
+# -------- CV Std --------
+rf_std  = rf_cv.std()
+dt_std  = dt_cv.std()
+knn_std = knn_cv.std()
+
+print("\n--- FINAL METRICS ---")
+print("RF -> Precision:", rf_prec, "Recall:", rf_rec, "F1:", rf_f1, "CV Std:", rf_std)
+print("DT -> Precision:", dt_prec, "Recall:", dt_rec, "F1:", dt_f1, "CV Std:", dt_std)
+print("KNN -> Precision:", knn_prec, "Recall:", knn_rec, "F1:", knn_f1, "CV Std:", knn_std)
+
 joblib.dump(model, 'fertilizer_model.pkl')
 joblib.dump(le_soil, 'le_soil.pkl')
 joblib.dump(le_crop, 'le_crop.pkl')
