@@ -1,8 +1,4 @@
 venv/
 __pycache__/
 *.pkl
-!fertilizer_model.pkl
-!le_soil.pkl
-!le_crop.pkl
-!le_fert.pkl
 instance/
