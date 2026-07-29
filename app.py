@@ -455,30 +455,34 @@ def chat():
 def predict_fertilizer():
     try:
         temperature = float(request.form['temperature'])
-        humidity = float(request.form['humidity'])
         moisture = float(request.form['moisture'])
+        rainfall = float(request.form['rainfall'])
+        ph = float(request.form['ph'])
         soil_type = request.form['soil_type']
         crop_type = request.form['crop_type']
         nitrogen = float(request.form['nitrogen'])
-        potassium = float(request.form['potassium'])
         phosphorous = float(request.form['phosphorous'])
+        potassium = float(request.form['potassium'])
+        carbon = float(request.form['carbon'])
 
         soil_enc = le_soil.transform([soil_type])[0]
         crop_enc = le_crop.transform([crop_type])[0]
 
-        sample = np.array([[temperature, humidity, moisture, soil_enc, crop_enc, nitrogen, potassium, phosphorous]])
+        sample = np.array([[temperature, moisture, rainfall, ph, nitrogen, phosphorous, potassium, carbon, soil_enc, crop_enc]])
         prediction = fert_model.predict(sample)
         fertilizer = le_fert.inverse_transform(prediction)[0]
-
+        
         quantity_guide = {
             'Urea': '100-150 kg/acre',
             'DAP': '50-60 kg/acre',
-            'MOP': '40-50 kg/acre',
-            '14-35-14': '75-100 kg/acre',
-            '28-28': '80-100 kg/acre',
-            '17-17-17': '75-100 kg/acre',
-            '20-20': '75-100 kg/acre',
-            '10-26-26': '75-100 kg/acre',
+            'Muriate of Potash': '40-50 kg/acre',
+            'Balanced NPK Fertilizer': '75-100 kg/acre',
+            'Compost': '1000-1500 kg/acre',
+            'Organic Fertilizer': '500-800 kg/acre',
+            'Water Retaining Fertilizer': '20-30 kg/acre',
+            'Gypsum': '200-300 kg/acre',
+            'Lime': '150-250 kg/acre',
+            'General Purpose Fertilizer': '75-100 kg/acre',
         }
         quantity = quantity_guide.get(fertilizer, '50-100 kg/acre')
 
