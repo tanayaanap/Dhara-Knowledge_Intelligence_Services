@@ -61,6 +61,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ml_model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
 le       = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
 
+fert_model = joblib.load('fertilizer_model.pkl')
+le_soil = joblib.load('le_soil.pkl')
+le_crop = joblib.load('le_crop.pkl')
+le_fert = joblib.load('le_fert.pkl') 
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # HELPERS
@@ -867,6 +872,70 @@ def chat():
         print("Gemini error:", e)
         return jsonify({"reply": f"Sorry, the assistant is temporarily unavailable. ({e})"})
 
+
+FERTILIZER_QUANTITY_GUIDE = {
+    'Urea': '100-150 kg/acre',
+    'DAP': '50-60 kg/acre',
+    'Muriate of Potash': '40-50 kg/acre',
+    'Balanced NPK Fertilizer': '75-100 kg/acre',
+    'Compost': '1000-1500 kg/acre',
+    'Organic Fertilizer': '500-800 kg/acre',
+    'Water Retaining Fertilizer': '20-30 kg/acre',
+    'Gypsum': '200-300 kg/acre',
+    'Lime': '150-250 kg/acre',
+    'General Purpose Fertilizer': '75-100 kg/acre',
+}
+
+
+@app.route("/api/recommend-fertilizer", methods=["POST"])
+def recommend_fertilizer():
+    try:
+        data = request.get_json() or {}
+
+        temperature = safe_float(data.get("temperature"), 25.0)
+        moisture    = safe_float(data.get("moisture"), 40.0)
+        rainfall    = safe_float(data.get("rainfall"), 100.0)
+        ph          = safe_float(data.get("ph"), 6.5)
+        nitrogen    = safe_float(data.get("nitrogen"))
+        phosphorous = safe_float(data.get("phosphorous"))
+        potassium   = safe_float(data.get("potassium"))
+        carbon      = safe_float(data.get("carbon"), 0.5)
+        soil_type   = data.get("soil_type", "")
+        crop_type   = data.get("crop_type", "")
+
+        try:
+            soil_enc = le_soil.transform([soil_type])[0]
+        except ValueError:
+            return jsonify({"success": False,
+                "error": f"Unknown soil type '{soil_type}'. Valid options: {list(le_soil.classes_)}"}), 400
+
+        try:
+            crop_enc = le_crop.transform([crop_type])[0]
+        except ValueError:
+            return jsonify({"success": False,
+                "error": f"Unknown crop type '{crop_type}'. Valid options: {list(le_crop.classes_)}"}), 400
+
+        sample = np.array([[temperature, moisture, rainfall, ph,
+                             nitrogen, phosphorous, potassium, carbon,
+                             soil_enc, crop_enc]])
+
+        probs = fert_model.predict_proba(sample)[0]
+        top_idx = int(np.argmax(probs))
+        fertilizer = le_fert.inverse_transform([top_idx])[0]
+        confidence = round(float(probs[top_idx]) * 100, 2)
+
+        quantity = FERTILIZER_QUANTITY_GUIDE.get(fertilizer, '50-100 kg/acre')
+
+        return jsonify({
+            "success": True,
+            "recommended_fertilizer": fertilizer,
+            "quantity": quantity,
+            "confidence": confidence,
+        })
+
+    except Exception as e:
+        print("Fertilizer prediction error:", e)
+        return jsonify({"success": False, "error": str(e)}), 400
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
