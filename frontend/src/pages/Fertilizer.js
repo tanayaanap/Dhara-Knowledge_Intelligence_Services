@@ -6,18 +6,23 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 function Fertilizer() {
     const [formData, setFormData] = useState({
         crop_type: '',
+        soil_type: '',
         nitrogen: '',
-        phosphorus: '',
+        phosphorous: '',
         potassium: '',
-        soil_type: ''
+        temperature: '',
+        moisture: '',
+        rainfall: '',
+        ph: '',
+        carbon: ''
     });
-    
+
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
-    const cropTypes = ['Rice', 'Wheat', 'Cotton', 'Maize', 'Sugarcane', 'Barley', 'Soybean', 'Potato', 'Tomato', 'Vegetables'];
-    const soilTypes = ['Sandy', 'Loamy', 'Clay', 'Red', 'Black'];
+    const cropTypes = ['Adzuki Beans', 'Black gram', 'Chickpea', 'Coconut', 'Coffee', 'Cotton', 'Ground Nut', 'Jute', 'Kidney Beans', 'Lentil', 'Moth Beans', 'Mung Bean', 'Peas', 'Pigeon Peas', 'Rubber', 'Sugarcane', 'Tea', 'Tobacco', 'apple', 'banana', 'grapes', 'maize', 'mango', 'millet', 'muskmelon', 'orange', 'papaya', 'pomegranate', 'rice', 'watermelon', 'wheat'];
+    const soilTypes = ['Acidic Soil', 'Alkaline Soil', 'Loamy Soil', 'Neutral Soil', 'Peaty Soil'];
 
     const handleChange = (e) => {
         setFormData({
@@ -30,19 +35,28 @@ function Fertilizer() {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        
+
         try {
         const response = await axios.post(`${BACKEND_URL}/api/recommend-fertilizer`, {
             crop_type: formData.crop_type,
+            soil_type: formData.soil_type,
             nitrogen: parseFloat(formData.nitrogen),
-            phosphorus: parseFloat(formData.phosphorus),
+            phosphorous: parseFloat(formData.phosphorous),
             potassium: parseFloat(formData.potassium),
-            soil_type: formData.soil_type
+            temperature: parseFloat(formData.temperature),
+            moisture: parseFloat(formData.moisture),
+            rainfall: parseFloat(formData.rainfall),
+            ph: parseFloat(formData.ph),
+            carbon: parseFloat(formData.carbon)
         });
-        
-        setResult(response.data);
+
+        if (response.data.success) {
+            setResult(response.data);
+        } else {
+            setError(response.data.error || 'Failed to get recommendation. Please try again.');
+        }
         } catch (err) {
-        setError('Failed to get recommendation. Please try again.');
+        setError(err.response?.data?.error || 'Failed to get recommendation. Please try again.');
         console.error('Error:', err);
         } finally {
         setLoading(false);
@@ -115,7 +129,7 @@ function Fertilizer() {
                     <div className="grid md:grid-cols-3 gap-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🔵 Nitrogen (N) - kg/ha
+                        🔵 Nitrogen
                         </label>
                         <input
                         type="number"
@@ -125,29 +139,29 @@ function Fertilizer() {
                         onChange={handleChange}
                         required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                        placeholder="0-100"
+                        placeholder="e.g. 90"
                         data-testid="input-nitrogen"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🟠 Phosphorus (P) - kg/ha
+                        🟠 Phosphorous
                         </label>
                         <input
                         type="number"
                         step="0.01"
-                        name="phosphorus"
-                        value={formData.phosphorus}
+                        name="phosphorous"
+                        value={formData.phosphorous}
                         onChange={handleChange}
                         required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                        placeholder="0-100"
-                        data-testid="input-phosphorus"
+                        placeholder="e.g. 42"
+                        data-testid="input-phosphorous"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🟣 Potassium (K) - kg/ha
+                        🟣 Potassium
                         </label>
                         <input
                         type="number"
@@ -157,8 +171,97 @@ function Fertilizer() {
                         onChange={handleChange}
                         required
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                        placeholder="0-100"
+                        placeholder="e.g. 43"
                         data-testid="input-potassium"
+                        />
+                    </div>
+                    </div>
+                </div>
+
+                {/* Environmental Values */}
+                <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Environmental Conditions</h3>
+                    <div className="grid md:grid-cols-3 gap-6 mb-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        🌡️ Temperature (°C)
+                        </label>
+                        <input
+                        type="number"
+                        step="0.01"
+                        name="temperature"
+                        value={formData.temperature}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="e.g. 28"
+                        data-testid="input-temperature"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        💧 Moisture (%)
+                        </label>
+                        <input
+                        type="number"
+                        step="0.01"
+                        name="moisture"
+                        value={formData.moisture}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="e.g. 40"
+                        data-testid="input-moisture"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        🌧️ Rainfall (mm)
+                        </label>
+                        <input
+                        type="number"
+                        step="0.01"
+                        name="rainfall"
+                        value={formData.rainfall}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="e.g. 100"
+                        data-testid="input-rainfall"
+                        />
+                    </div>
+                    </div>
+                    <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        ⚗️ pH
+                        </label>
+                        <input
+                        type="number"
+                        step="0.01"
+                        name="ph"
+                        value={formData.ph}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="e.g. 6.5"
+                        data-testid="input-ph"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        🌿 Organic Carbon
+                        </label>
+                        <input
+                        type="number"
+                        step="0.01"
+                        name="carbon"
+                        value={formData.carbon}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        placeholder="e.g. 0.5"
+                        data-testid="input-carbon"
                         />
                     </div>
                     </div>
@@ -205,7 +308,7 @@ function Fertilizer() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
+                <div className="bg-white rounded-xl p-6 shadow-md">
                     <h3 className="text-sm font-semibold text-gray-500 mb-2">Recommended Fertilizer</h3>
                     <p className="text-4xl font-bold text-purple-600 mb-3" data-testid="recommended-fertilizer">
                     {result.recommended_fertilizer}
@@ -214,27 +317,6 @@ function Fertilizer() {
                     <span className="text-sm font-semibold text-gray-500">Application Rate:</span>
                     <p className="text-2xl font-bold text-gray-800">{result.quantity}</p>
                     </div>
-                </div>
-
-                {result.application_tips && result.application_tips.length > 0 && (
-                    <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-3">📋 Application Tips</h3>
-                    <ul className="space-y-2">
-                        {result.application_tips.map((tip, index) => (
-                        <li key={index} className="flex items-start">
-                            <span className="inline-block w-6 h-6 bg-purple-100 text-purple-600 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold mr-3 mt-0.5">
-                            {index + 1}
-                            </span>
-                            <span className="text-gray-700">{tip}</span>
-                        </li>
-                        ))}
-                    </ul>
-                    </div>
-                )}
-
-                <div className="bg-white rounded-xl p-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">📝 Additional Notes</h3>
-                    <p className="text-gray-700 leading-relaxed">{result.notes}</p>
                 </div>
                 </div>
             )}
