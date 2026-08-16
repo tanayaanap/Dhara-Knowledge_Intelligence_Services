@@ -58,8 +58,13 @@ if OCR_AVAILABLE:
 
 # ── Load ML model ────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ml_model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
-le       = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+try:
+    ml_model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
+    le       = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+except FileNotFoundError:
+    ml_model = None
+    le = None
+    print("WARNING: crop model files missing — crop prediction route will not work until xgboost_model.pkl and label_encoder.pkl are added.")
 
 fert_model = joblib.load('fertilizer_model.pkl')
 le_soil = joblib.load('le_soil.pkl')
