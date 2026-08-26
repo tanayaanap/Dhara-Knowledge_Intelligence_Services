@@ -1,83 +1,67 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import axios from 'axios';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
 function DiseasePrediction() {
-    const [formData, setFormData] = useState({
-        crop_type: '',
-        temperature: '',
-        humidity: '',
-        symptoms: []
-    });
-    
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const fileInputRef = useRef(null);
 
-    const cropTypes = ['Rice', 'Wheat', 'Cotton', 'Maize', 'Sugarcane', 'Barley', 'Soybean', 'Potato', 'Tomato'];
-    
-    const availableSymptoms = [
-        'Yellow leaves',
-        'Brown spots',
-        'Wilting',
-        'Leaf curl',
-        'Mold growth',
-        'Stunted growth',
-        'Discolored stems',
-        'Holes in leaves',
-        'Powdery coating'
-    ];
-
-    const handleChange = (e) => {
-        setFormData({
-        ...formData,
-        [e.target.name]: e.target.value
-        });
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSelectedFile(file);
+        setResult(null);
+        setError(null);
+        setPreviewUrl(URL.createObjectURL(file));
     };
 
-    const toggleSymptom = (symptom) => {
-        setFormData(prev => ({
-        ...prev,
-        symptoms: prev.symptoms.includes(symptom)
-            ? prev.symptoms.filter(s => s !== symptom)
-            : [...prev.symptoms, symptom]
-        }));
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (!file) return;
+        setSelectedFile(file);
+        setResult(null);
+        setError(null);
+        setPreviewUrl(URL.createObjectURL(file));
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (!selectedFile) {
+            setError('Please select a leaf image first.');
+            return;
+        }
         setLoading(true);
         setError(null);
-        
+
         try {
-        const response = await axios.post(`${BACKEND_URL}/api/predict-disease`, {
-            crop_type: formData.crop_type,
-            symptoms: formData.symptoms,
-            temperature: parseFloat(formData.temperature),
-            humidity: parseFloat(formData.humidity)
-        });
-        
-        setResult(response.data);
+            const formData = new FormData();
+            formData.append('image', selectedFile);
+
+            const response = await axios.post(`${BACKEND_URL}/api/predict-disease`, formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            setResult(response.data);
         } catch (err) {
-        setError('Failed to get prediction. Please try again.');
-        console.error('Error:', err);
+            setError(err.response?.data?.error || 'Failed to get prediction. Please try again.');
+            console.error('Error:', err);
         } finally {
-        setLoading(false);
+            setLoading(false);
         }
     };
 
-    const getSeverityColor = (severity) => {
-        switch (severity?.toLowerCase()) {
-        case 'low':
-            return 'bg-green-100 text-green-700 border-green-300';
-        case 'medium':
-            return 'bg-yellow-100 text-yellow-700 border-yellow-300';
-        case 'high':
-            return 'bg-red-100 text-red-700 border-red-300';
-        default:
-            return 'bg-gray-100 text-gray-700 border-gray-300';
-        }
+    const handleReset = () => {
+        setSelectedFile(null);
+        setPreviewUrl(null);
+        setResult(null);
+        setError(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     return (
@@ -93,96 +77,66 @@ function DiseasePrediction() {
                 Disease Prediction
                 </h1>
                 <p className="text-lg text-gray-600">
-                Identify crop diseases early with AI-powered analysis
+                Upload a leaf photo and let AI identify the disease
                 </p>
             </div>
 
             {/* Form */}
             <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
                 <form onSubmit={handleSubmit}>
-                {/* Crop Type Selection */}
                 <div className="mb-6">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    🌱 Select Crop Type
-                    </label>
-                    <select
-                    name="crop_type"
-                    value={formData.crop_type}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    data-testid="select-crop-type"
-                    >
-                    <option value="">Choose a crop...</option>
-                    {cropTypes.map(crop => (
-                        <option key={crop} value={crop}>{crop}</option>
-                    ))}
-                    </select>
-                </div>
-
-                {/* Environmental Conditions */}
-                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🌡️ Temperature (°C)
-                    </label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        name="temperature"
-                        value={formData.temperature}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Enter temperature"
-                        data-testid="input-temperature"
-                    />
-                    </div>
-                    <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        💧 Humidity (%)
-                    </label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        name="humidity"
-                        value={formData.humidity}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Enter humidity"
-                        data-testid="input-humidity"
-                    />
-                    </div>
-                </div>
-
-                {/* Symptoms Selection */}
-                <div className="mb-8">
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
-                    🩺 Select Symptoms (choose all that apply)
+                    🌿 Upload Leaf Image
                     </label>
-                    <div className="grid md:grid-cols-3 gap-3">
-                    {availableSymptoms.map(symptom => (
-                        <button
-                        key={symptom}
-                        type="button"
-                        onClick={() => toggleSymptom(symptom)}
-                        className={`px-4 py-3 rounded-lg border-2 font-medium transition-all ${
-                            formData.symptoms.includes(symptom)
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
-                        }`}
-                        data-testid={`symptom-${symptom.toLowerCase().replace(/s/g, '-')}`}
-                        >
-                        {symptom}
-                        </button>
-                    ))}
+
+                    <div
+                        onDrop={handleDrop}
+                        onDragOver={(e) => e.preventDefault()}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-8 text-center cursor-pointer transition-all bg-gray-50 hover:bg-blue-50"
+                        data-testid="disease-upload-zone"
+                    >
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
+                            onChange={handleFileChange}
+                            className="hidden"
+                            data-testid="disease-image-input"
+                        />
+
+                        {previewUrl ? (
+                            <img
+                                src={previewUrl}
+                                alt="Selected leaf"
+                                className="max-h-64 mx-auto rounded-lg shadow-md"
+                            />
+                        ) : (
+                            <>
+                                <div className="text-4xl mb-3">🗂️</div>
+                                <p className="text-gray-600 font-medium mb-1">Click to upload or drag & drop</p>
+                                <p className="text-xs text-gray-400">PNG, JPG, or WEBP</p>
+                            </>
+                        )}
                     </div>
+
+                    {selectedFile && (
+                        <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+                            <span>{selectedFile.name}</span>
+                            <button
+                                type="button"
+                                onClick={handleReset}
+                                className="text-red-500 hover:text-red-700 font-medium"
+                            >
+                                Remove
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <button
                     type="submit"
-                    disabled={loading || formData.symptoms.length === 0}
+                    disabled={loading || !selectedFile}
                     className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 text-white py-4 rounded-lg font-semibold text-lg hover:from-blue-600 hover:to-cyan-700 transform hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                     data-testid="predict-disease-button"
                 >
@@ -221,33 +175,12 @@ function DiseasePrediction() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Detected Condition</h3>
-                    <p className="text-4xl font-bold text-blue-600 mb-3" data-testid="detected-disease">{result.disease}</p>
-                    <span className={`inline-block px-4 py-2 rounded-full border-2 font-semibold ${getSeverityColor(result.severity)}`}>
-                    {result.severity} Severity
-                    </span>
-                </div>
-
-                {result.treatment && result.treatment.length > 0 && (
-                    <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-3">💊 Treatment Recommendations</h3>
-                    <ul className="space-y-2">
-                        {result.treatment.map((step, index) => (
-                        <li key={index} className="flex items-start">
-                            <span className="inline-block w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold mr-3 mt-0.5">
-                            {index + 1}
-                            </span>
-                            <span className="text-gray-700">{step}</span>
-                        </li>
-                        ))}
-                    </ul>
-                    </div>
-                )}
-
                 <div className="bg-white rounded-xl p-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">🛡️ Prevention Tips</h3>
-                    <p className="text-gray-700 leading-relaxed">{result.prevention}</p>
+                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Plant</h3>
+                    <p className="text-xl font-semibold text-gray-700 mb-4" data-testid="detected-plant">{result.plant}</p>
+
+                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Detected Condition</h3>
+                    <p className="text-4xl font-bold text-blue-600" data-testid="detected-disease">{result.disease}</p>
                 </div>
                 </div>
             )}

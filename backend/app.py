@@ -25,6 +25,10 @@ import csv
 import json
 import datetime
 import requests
+import torch
+import torchvision.transforms as transforms
+from PIL import Image as PILImage
+from model import load_model, CLASS_NAMES
 
 # ── optional OCR deps ────────────────────────────────────────────────────────
 try:
@@ -58,13 +62,32 @@ if OCR_AVAILABLE:
 
 # ── Load ML model ────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ml_model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
-le       = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+try:
+    ml_model = joblib.load(os.path.join(BASE_DIR, "xgboost_model.pkl"))
+    le       = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+except FileNotFoundError:
+    ml_model = None
+    le = None
+    print("WARNING: crop model files missing — crop prediction route will not work until xgboost_model.pkl and label_encoder.pkl are added.")
 
 fert_model = joblib.load('fertilizer_model.pkl')
 le_soil = joblib.load('le_soil.pkl')
 le_crop = joblib.load('le_crop.pkl')
 le_fert = joblib.load('le_fert.pkl') 
+
+# ── Load plant disease detection model (image → disease class) ──────────────
+DISEASE_MODEL_PATH = os.path.join(BASE_DIR, "plant-disease-model.pth")
+DISEASE_IMAGE_SIZE = 256
+DISEASE_DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+disease_transform = transforms.Compose([
+    transforms.Resize((DISEASE_IMAGE_SIZE, DISEASE_IMAGE_SIZE)),
+    transforms.ToTensor(),
+])
+try:
+    disease_model = load_model(DISEASE_MODEL_PATH, device=DISEASE_DEVICE)
+except FileNotFoundError:
+    disease_model = None
+    print("WARNING: plant-disease-model.pth missing — /api/predict-disease will not work.")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -936,6 +959,62 @@ def recommend_fertilizer():
     except Exception as e:
         print("Fertilizer prediction error:", e)
         return jsonify({"success": False, "error": str(e)}), 400
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DISEASE PREDICTION (image upload → ResNet9 classification)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@app.route("/api/predict-disease", methods=["POST"])
+def predict_disease():
+    if disease_model is None:
+        return jsonify({"error": "Disease model not loaded on server."}), 503
+
+    if "image" not in request.files:
+        return jsonify({"error": "No image file provided. Send it as multipart/form-data under the 'image' field."}), 400
+
+    file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"error": "Empty filename."}), 400
+
+    try:
+        image = PILImage.open(file.stream)
+        if image.mode != "RGB":
+            image = image.convert("RGB")
+
+        tensor = disease_transform(image).unsqueeze(0).to(DISEASE_DEVICE)
+
+        with torch.no_grad():
+            logits = disease_model(tensor)
+            probs = torch.softmax(logits, dim=1)
+            conf, pred_idx = torch.max(probs, dim=1)
+
+        raw_class = CLASS_NAMES[pred_idx.item()]
+        confidence = round(conf.item() * 100, 2)
+
+        parts = raw_class.split("___")
+        plant = parts[0].replace("_", " ")
+        condition = parts[1].replace("_", " ").strip() if len(parts) > 1 else "Unknown"
+        is_healthy = "healthy" in condition.lower()
+
+        disease_label = "Healthy" if is_healthy else condition
+
+        return jsonify({
+            "success": True,
+            "plant": plant,
+            "disease": disease_label,
+            "confidence": confidence,
+            "raw_class": raw_class,
+            "severity": None,
+            "treatment": [],
+            "prevention": None,
+        })
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
