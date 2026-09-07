@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Body, Button, Card, Field, Screen, Title } from '@/components/ui';
+import { Body, Button, Card, Field, Screen, Title, SectionLabel } from '@/components/ui';
 import { useAuth } from '@/context/auth-context';
 import { getProfile, updateProfile } from '@/services/api';
 import { spacing } from '@/theme/spacing';
@@ -26,8 +26,9 @@ export default function ProfileScreen() {
       <Screen>
         <SafeAreaView style={styles.safe}>
           <View style={styles.stack}>
-            <Title>Profile</Title>
-            <Body muted>Sign in to manage your Dhara account and saved farm details.</Body>
+            <SectionLabel>Your account</SectionLabel>
+            <Title>Your farm profile</Title>
+            <Body muted>Sign in to save your farm details and get more useful guidance.</Body>
             <Link href="/login" asChild><Button label="Sign in" icon="log-in" /></Link>
             <Link href="/register" asChild><Button label="Create account" icon="person-add" tone="neutral" /></Link>
           </View>
@@ -40,7 +41,8 @@ export default function ProfileScreen() {
     <Screen>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.stack}>
-          <Title>Profile</Title>
+          <SectionLabel>Your account</SectionLabel>
+          <Title>Farm profile</Title>
           <Card>
             <View style={styles.stack}>
               <Title small>{profile.data?.name || user.name || 'Farmer'}</Title>
@@ -55,7 +57,7 @@ export default function ProfileScreen() {
                 )} />
               ))}
               <Button label="Save profile" icon="save" loading={save.isPending} onPress={handleSubmit((values) => save.mutate(values))} />
-              {save.isSuccess ? <Body muted>Profile updated.</Body> : null}
+              {save.isSuccess ? <Body muted>Profile saved successfully.</Body> : null}
               {save.isError ? <Body muted>Could not save profile.</Body> : null}
             </View>
           </Card>

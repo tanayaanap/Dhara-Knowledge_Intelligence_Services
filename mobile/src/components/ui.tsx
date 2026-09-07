@@ -16,6 +16,11 @@ export function Card({ children }: PropsWithChildren) {
   return <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.line }]}>{children}</View>;
 }
 
+export function SectionLabel({ children }: PropsWithChildren) {
+  const { colors } = useAppTheme();
+  return <Text style={[styles.sectionLabel, { color: colors.muted }]}>{children}</Text>;
+}
+
 export function Title({ children, small }: PropsWithChildren<{ small?: boolean }>) {
   const { colors } = useAppTheme();
   return <Text style={[small ? styles.h2 : styles.title, { color: colors.text }]}>{children}</Text>;
@@ -37,7 +42,7 @@ export function Button({ label, icon, onPress, loading, disabled, tone = 'primar
   const bg = tone === 'danger' ? colors.danger : tone === 'neutral' ? colors.primarySoft : colors.primary;
   const fg = tone === 'neutral' ? colors.primary : '#FFFFFF';
   return (
-    <Pressable {...props} accessibilityRole="button" onPress={onPress} disabled={disabled || loading} style={[styles.button, { backgroundColor: bg, opacity: disabled ? 0.55 : 1 }]}>
+    <Pressable {...props} accessibilityRole="button" onPress={onPress} disabled={disabled || loading} style={({ pressed }) => [styles.button, { backgroundColor: bg, opacity: disabled ? 0.55 : pressed ? 0.82 : 1 }]}>
       {loading ? <ActivityIndicator color={fg} /> : icon ? <Ionicons name={icon} size={18} color={fg} /> : null}
       <Text style={[styles.buttonText, { color: fg }]}>{label}</Text>
     </Pressable>
@@ -48,7 +53,7 @@ export function Field({ label, error, ...props }: TextInputProps & { label: stri
   const { colors } = useAppTheme();
   return (
     <View style={styles.fieldWrap}>
-      <Text style={[styles.label, { color: colors.muted }]}>{label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
       <TextInput
         placeholderTextColor={colors.muted}
         style={[styles.input, { backgroundColor: colors.elevated, borderColor: error ? colors.danger : colors.line, color: colors.text }]}
@@ -72,9 +77,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   title: { fontSize: typography.title, fontWeight: '800', letterSpacing: 0 },
-  h2: { fontSize: typography.h2, fontWeight: '750', letterSpacing: 0 },
+  h2: { fontSize: typography.h2, fontWeight: '700', letterSpacing: 0 },
   body: { fontSize: typography.body, lineHeight: 23 },
-  button: { minHeight: 52, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg },
+  sectionLabel: { fontSize: typography.small, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase' },
+  button: { minHeight: 54, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg },
   buttonText: { fontSize: 16, fontWeight: '700' },
   fieldWrap: { gap: spacing.xs },
   label: { fontSize: typography.small, fontWeight: '700' },

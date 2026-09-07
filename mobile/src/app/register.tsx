@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,7 +19,8 @@ export default function RegisterScreen() {
   });
   return (
     <Screen><SafeAreaView style={styles.safe}><ScrollView contentContainerStyle={styles.stack}>
-      <Title>Join Dhara</Title><Body muted>Create your farmer account.</Body>
+      <View style={styles.brand}><View style={styles.logo}><Text style={styles.logoText}>D</Text></View><Text style={styles.brandText}>Dhara</Text></View>
+      <Title>Create your farm profile</Title><Body muted>Join a calmer, smarter way to plan your season.</Body>
       <Card>{(['name', 'email', 'password', 'location', 'land_size'] as const).map((name) => (
         <Controller key={name} control={control} name={name} render={({ field }) => <Field label={name === 'land_size' ? 'Land size' : name[0].toUpperCase() + name.slice(1)} secureTextEntry={name === 'password'} autoCapitalize={name === 'email' ? 'none' : 'sentences'} value={field.value} onChangeText={field.onChange} error={errors[name]?.message} />} />
       ))}
@@ -28,4 +29,4 @@ export default function RegisterScreen() {
     </ScrollView></SafeAreaView></Screen>
   );
 }
-const styles = StyleSheet.create({ safe: { flex: 1, padding: spacing.lg }, stack: { gap: spacing.md } });
+const styles = StyleSheet.create({ safe: { flex: 1, padding: spacing.lg }, stack: { gap: spacing.md }, brand: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.lg }, logo: { width: 42, height: 42, borderRadius: 14, backgroundColor: '#2F6B45', alignItems: 'center', justifyContent: 'center' }, logoText: { color: '#FFFFFF', fontSize: 24, fontWeight: '900' }, brandText: { color: '#2F6B45', fontSize: 22, fontWeight: '900' } });

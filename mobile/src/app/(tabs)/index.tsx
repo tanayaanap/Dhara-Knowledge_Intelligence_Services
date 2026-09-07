@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Screen, Title, Body } from '@/components/ui';
+import { Card, Screen, Title, Body, SectionLabel } from '@/components/ui';
 import { getStats } from '@/services/api';
 import { useAuth } from '@/context/auth-context';
 import { spacing } from '@/theme/spacing';
@@ -29,9 +29,25 @@ export default function Home() {
           refreshControl={<RefreshControl refreshing={stats.isFetching} onRefresh={() => stats.refetch()} tintColor={colors.primary} />}
           ListHeaderComponent={(
             <View style={styles.header}>
-              <Text style={[styles.brand, { color: colors.primary }]}>Dhara</Text>
-              <Title>Knowledge. Intelligence. Services.</Title>
-              <Body muted>{user ? `Welcome back, ${user.name || user.email}.` : 'Mobile-first agricultural intelligence for faster field decisions.'}</Body>
+              <View style={styles.greeting}>
+                <View style={[styles.logo, { backgroundColor: colors.primary }]}>
+                  <Ionicons name="leaf" size={20} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text style={[styles.brand, { color: colors.primary }]}>Dhara</Text>
+                  <Text style={[styles.eyebrow, { color: colors.muted }]}>FARM SMARTER</Text>
+                </View>
+              </View>
+              <Title>{user ? `Good morning, ${user.name || 'farmer'}` : 'Better decisions for your farm'}</Title>
+              <Body muted>{user ? 'Your farm insights are ready when you are.' : 'Simple agricultural intelligence to help every season grow.'}</Body>
+              <View style={[styles.hero, { backgroundColor: colors.primary }]}>
+                <Ionicons name="sunny-outline" size={30} color="#DCECCB" />
+                <View style={styles.heroText}>
+                  <Text style={styles.heroTitle}>Your farm, your advantage</Text>
+                  <Text style={styles.heroBody}>Use your soil and climate data to make confident choices.</Text>
+                </View>
+              </View>
+              <SectionLabel>Dhara at a glance</SectionLabel>
               <View style={styles.stats}>
                 {[
                   ['Users', stats.data?.total ?? 0],
@@ -65,7 +81,7 @@ export default function Home() {
               </Pressable>
             </Link>
           )}
-          ListFooterComponent={<Body muted>TODO: disease and fertilizer prediction screens are included as unavailable activities because `/api/predict-disease` and `/api/recommend-fertilizer` are not implemented in the backend.</Body>}
+          ListFooterComponent={<Body muted>More crop health and fertilizer tools are coming soon.</Body>}
           contentContainerStyle={styles.list}
         />
       </SafeAreaView>
@@ -76,8 +92,15 @@ export default function Home() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   list: { padding: spacing.lg, gap: spacing.md },
-  header: { gap: spacing.lg, marginBottom: spacing.sm },
-  brand: { fontSize: 15, fontWeight: '800', textTransform: 'uppercase' },
+  header: { gap: spacing.md, marginBottom: spacing.sm },
+  greeting: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  logo: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  brand: { fontSize: 18, fontWeight: '900' },
+  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 1 },
+  hero: { borderRadius: 18, padding: spacing.lg, flexDirection: 'row', gap: spacing.md, alignItems: 'center', marginVertical: spacing.sm },
+  heroText: { flex: 1, gap: 4 },
+  heroTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
+  heroBody: { color: '#E7F1E4', lineHeight: 20 },
   stats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   statValue: { fontSize: 24, fontWeight: '800' },
   statLabel: { fontSize: 12, marginTop: 2 },

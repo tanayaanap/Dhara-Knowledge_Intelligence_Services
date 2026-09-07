@@ -28,8 +28,10 @@ with app.app_context():
 
 # ---------------- MODEL LOAD ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-model = joblib.load(os.path.join(BASE_DIR, "ml/xgboost_model.pkl"))
-le = joblib.load(os.path.join(BASE_DIR, "ml/label_encoder.pkl"))
+
+# ML model temporarily disabled while testing mobile app
+model = None
+le = None
 
 # ---------------- TESSERACT CONFIG ----------------
 # Set Tesseract path (update this path after installation)

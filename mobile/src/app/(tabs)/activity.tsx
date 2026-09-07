@@ -1,15 +1,15 @@
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Body, Card, Screen, Title } from '@/components/ui';
+import { Body, Card, Screen, Title, SectionLabel } from '@/components/ui';
 import { spacing } from '@/theme/spacing';
 import { useAppTheme } from '@/theme/use-app-theme';
 
 const items = [
-  ['AI-Powered Predictions', 'Crop recommendations use the existing trained backend model.', 'hardware-chip'],
-  ['Disease Prediction', 'TODO: backend route `/api/predict-disease` is referenced by the web app but not implemented.', 'bug'],
-  ['Fertilizer Recommendation', 'TODO: backend route `/api/recommend-fertilizer` is referenced by the web app but not implemented.', 'flask'],
-  ['Our Mission', 'Democratize agricultural intelligence for better yield and sustainability.', 'earth'],
+  ['AI-powered predictions', 'Crop recommendations use your field details and our trained model.', 'hardware-chip'],
+  ['Disease guidance', 'A crop health tool is being prepared for a future update.', 'bug'],
+  ['Fertilizer guidance', 'Personalized fertilizer recommendations are coming soon.', 'flask'],
+  ['Our mission', 'Make agricultural intelligence practical, accessible, and useful for every farmer.', 'earth'],
 ] as const;
 
 export default function ActivityScreen() {
@@ -20,7 +20,7 @@ export default function ActivityScreen() {
         <FlatList
           data={items}
           keyExtractor={(item) => item[0]}
-          ListHeaderComponent={<View style={styles.header}><Title>Activity</Title><Body muted>Feature coverage, backend status, and Dhara product context.</Body></View>}
+          ListHeaderComponent={<View style={styles.header}><SectionLabel>About Dhara</SectionLabel><Title>Tools that grow with you</Title><Body muted>Everything here is designed to make everyday farm decisions a little clearer.</Body></View>}
           renderItem={({ item }) => (
             <Card>
               <View style={styles.row}>

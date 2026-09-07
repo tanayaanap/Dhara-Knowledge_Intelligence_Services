@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Body, Button, Card, Field, Screen, Title } from '@/components/ui';
+import { Body, Button, Card, Field, Screen, Title, SectionLabel } from '@/components/ui';
 import { predictCrop, scanSoilReport } from '@/services/api';
 import { spacing } from '@/theme/spacing';
 import { useAppTheme } from '@/theme/use-app-theme';
@@ -35,7 +35,7 @@ const fields: Array<[keyof FormValues, string]> = [
 export default function CropScreen() {
   const { colors } = useAppTheme();
   const [mode, setMode] = useState<'manual' | 'scan'>('manual');
-  const { control, handleSubmit, setValue, formState: { errors } } = useForm<FormValues>({ resolver: zodResolver(schema) });
+  const { control, handleSubmit, setValue, formState: { errors } } = useForm<z.input<typeof schema>, unknown, FormValues>({ resolver: zodResolver(schema) });
   const predict = useMutation({ mutationFn: predictCrop });
   const scan = useMutation({ mutationFn: scanSoilReport });
 
@@ -72,21 +72,22 @@ export default function CropScreen() {
           keyExtractor={(item) => item.crop}
           ListHeaderComponent={(
             <View style={styles.stack}>
-              <Title>Crop Prediction</Title>
-              <Body muted>Enter values manually or scan a soil report to fill the form.</Body>
+              <SectionLabel>Crop guidance</SectionLabel>
+              <Title>Find the right crop</Title>
+              <Body muted>Share a few details about your field and Dhara will suggest what can grow best.</Body>
               <View style={[styles.segment, { backgroundColor: colors.primarySoft }]}>
                 {(['manual', 'scan'] as const).map((item) => (
                   <Pressable key={item} onPress={() => setMode(item)} style={[styles.segmentItem, mode === item && { backgroundColor: colors.surface }]}>
-                    <Text style={[styles.segmentText, { color: mode === item ? colors.primary : colors.muted }]}>{item === 'manual' ? 'Manual' : 'Scan report'}</Text>
+                    <Text style={[styles.segmentText, { color: mode === item ? colors.primary : colors.muted }]}>{item === 'manual' ? 'Enter values' : 'Scan report'}</Text>
                   </Pressable>
                 ))}
               </View>
               {mode === 'scan' ? (
                 <Card>
                   <View style={styles.stack}>
-                    <Title small>Upload Soil Test Report</Title>
-                    <Body muted>Supports JPG, PNG, and PDF. Extracted values are copied into the crop form.</Body>
-                    <Button label="Choose report" icon="cloud-upload" onPress={pickReport} loading={scan.isPending} />
+                    <Title small>Use a soil test report</Title>
+                    <Body muted>Upload a JPG, PNG, or PDF. We will read the values for you.</Body>
+                    <Button label="Choose a report" icon="cloud-upload" onPress={pickReport} loading={scan.isPending} />
                     {scan.data ? <Body muted>{Object.keys(scan.data.extracted || {}).length} fields extracted.</Body> : null}
                   </View>
                 </Card>
@@ -109,7 +110,7 @@ export default function CropScreen() {
                       )}
                     />
                   ))}
-                  <Button label="Predict best crops" icon="analytics" onPress={submit} loading={predict.isPending} />
+                  <Button label="Show my best crops" icon="analytics" onPress={submit} loading={predict.isPending} />
                   {predict.isError ? <Body muted>Prediction failed. Check your inputs and backend connection.</Body> : null}
                 </View>
               </Card>
@@ -118,10 +119,10 @@ export default function CropScreen() {
           renderItem={({ item, index }) => (
             <Card>
               <View style={styles.result}>
-                <Text style={[styles.rank, { color: colors.primary }]}>{index + 1}</Text>
+                <View style={[styles.rank, { backgroundColor: colors.primarySoft }]}><Text style={{ color: colors.primary, fontWeight: '900' }}>{index + 1}</Text></View>
                 <View style={{ flex: 1 }}>
                   <Title small>{item.crop}</Title>
-                  <Body muted>{item.probability}% confidence</Body>
+                  <Body muted>{item.probability}% match for your field</Body>
                 </View>
               </View>
             </Card>
@@ -141,5 +142,5 @@ const styles = StyleSheet.create({
   segmentItem: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
   segmentText: { fontWeight: '800' },
   result: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  rank: { fontSize: 28, fontWeight: '900', width: 36 },
+  rank: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 });
