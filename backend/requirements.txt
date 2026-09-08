@@ -7,4 +7,6 @@ pytesseract
 Pillow
 PyMuPDF
 flask_sqlalchemy
-tessseract
+flask_core
+torch
+torchvision

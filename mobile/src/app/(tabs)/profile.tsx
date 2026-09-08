@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Body, Button, Card, Field, Screen, Title, SectionLabel } from '@/components/ui';
+import { Body, Button, Field, Screen, Title, SectionLabel, Section, Avatar, Divider } from '@/components/ui';
 import { useAuth } from '@/context/auth-context';
 import { getProfile, updateProfile } from '@/services/api';
 import { spacing } from '@/theme/spacing';
@@ -30,26 +30,32 @@ export default function ProfileScreen() {
             <Title>Your farm profile</Title>
             <Body muted>Sign in to save your farm details and get more useful guidance.</Body>
             <Link href="/login" asChild><Button label="Sign in" icon="log-in" /></Link>
-            <Link href="/register" asChild><Button label="Create account" icon="person-add" tone="neutral" /></Link>
+            <Link href="/register" asChild><Button label="Create account" icon="person-add" tone="outline" /></Link>
           </View>
         </SafeAreaView>
       </Screen>
     );
   }
 
+  const displayName = profile.data?.name || user.name || 'Farmer';
+
   return (
     <Screen>
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.stack}>
           <SectionLabel>Your account</SectionLabel>
-          <Title>Farm profile</Title>
-          <Card>
-            <View style={styles.stack}>
-              <Title small>{profile.data?.name || user.name || 'Farmer'}</Title>
+
+          <View style={styles.identity}>
+            <Avatar name={displayName} size={52} />
+            <View style={{ flex: 1 }}>
+              <Title small>{displayName}</Title>
               <Body muted>{profile.data?.email || user.email}</Body>
             </View>
-          </Card>
-          <Card>
+          </View>
+
+          <Divider />
+
+          <Section label="Farm details">
             <View style={styles.stack}>
               {(['name', 'location', 'land_size'] as const).map((name) => (
                 <Controller key={name} control={control} name={name} render={({ field }) => (
@@ -60,8 +66,9 @@ export default function ProfileScreen() {
               {save.isSuccess ? <Body muted>Profile saved successfully.</Body> : null}
               {save.isError ? <Body muted>Could not save profile.</Body> : null}
             </View>
-          </Card>
-          <Button label="Logout" icon="log-out" tone="danger" onPress={signOut} />
+          </Section>
+
+          <Button label="Log out" icon="log-out-outline" tone="outline" onPress={signOut} />
         </ScrollView>
       </SafeAreaView>
     </Screen>
@@ -71,4 +78,5 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1, padding: spacing.lg },
   stack: { gap: spacing.md },
+  identity: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
 });

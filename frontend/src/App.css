@@ -37,6 +37,7 @@ button, a, input, select {
     background: #059669;
 }
 
+<<<<<<< HEAD
 /* Dark mode scrollbar */
 html.dark ::-webkit-scrollbar-track {
     background: #1e293b;
@@ -77,3 +78,6 @@ html.dark .glow-effect {
 html.dark .card-hover:hover {
     box-shadow: 0 20px 40px rgba(16, 185, 129, 0.1);
 }
+=======
+
+>>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d

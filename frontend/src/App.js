@@ -9,8 +9,14 @@ import AboutUs from './pages/AboutUs';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
+<<<<<<< HEAD
 import AnimatedBackground from './components/AnimatedBackground';
 import DarkModeToggle from './components/DarkModeToggle';
+=======
+import Chatbot from './pages/Chatbot';
+import farmBg from "./assets/farm.jpg";
+
+>>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
 
 const NAV_LINKS = [
   { to: '/', label: 'Dashboard', testId: 'nav-dashboard' },
@@ -210,13 +216,15 @@ function App() {
           <Route path="/disease-prediction" element={<DiseasePrediction />} />
           <Route path="/fertilizer" element={<Fertilizer />} />
           <Route path="/about" element={<AboutUs />} />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login onLogin={refreshUser} />} />
+
           <Route path="/register" element={<Register />} />
           <Route
             path="/profile"
             element={<Profile onUserUpdate={refreshUser} onLogout={handleLogout} />}
           />
         </Routes>
+        <Chatbot />
       </div>
     </Router>
   );

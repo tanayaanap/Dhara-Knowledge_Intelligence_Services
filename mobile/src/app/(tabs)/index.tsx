@@ -1,89 +1,77 @@
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { Card, Screen, Title, Body, SectionLabel } from '@/components/ui';
+import { Card, Screen, Title, Body, SectionLabel, ListRow, Divider } from '@/components/ui';
 import { getStats } from '@/services/api';
 import { useAuth } from '@/context/auth-context';
+import { useLocale } from '@/i18n';
+import { palette } from '@/theme/colors';
 import { spacing } from '@/theme/spacing';
 import { useAppTheme } from '@/theme/use-app-theme';
-
-const features = [
-  { title: 'Crop intelligence', body: 'Predict the best crops from soil and climate readings.', href: '/crop', icon: 'leaf' },
-  { title: 'Soil report scan', body: 'Upload a report and auto-fill crop inputs with OCR.', href: '/crop', icon: 'document-text' },
-  { title: 'Dhara AI', body: 'Ask practical farming questions through the backend assistant.', href: '/ai', icon: 'sparkles' },
-] as const;
 
 export default function Home() {
   const { colors } = useAppTheme();
   const { user } = useAuth();
+  const { t } = useLocale();
   const stats = useQuery({ queryKey: ['stats'], queryFn: getStats });
+
+  const statItems = [
+    [t('home.stats.users'), stats.data?.total ?? 0],
+    [t('home.stats.crops'), stats.data?.crop ?? 0],
+    [t('home.stats.disease'), stats.data?.disease ?? 0],
+    [t('home.stats.fertilizer'), stats.data?.fertilizer ?? 0],
+  ] as const;
+
+  const features = [
+    { title: t('home.cropTitle'), subtitle: t('home.cropBody'), href: '/crop' as const, icon: 'leaf-outline' as const, bg: colors.primarySoft, fg: colors.primary },
+    { title: t('home.scanTitle'), subtitle: t('home.scanBody'), href: '/crop' as const, icon: 'document-text-outline' as const, bg: '#E9EEFD', fg: palette.blue },
+    { title: t('home.aiTitle'), subtitle: t('home.aiBody'), href: '/ai' as const, icon: 'sparkles-outline' as const, bg: '#F1E9FD', fg: palette.violet },
+  ];
 
   return (
     <Screen>
       <SafeAreaView style={styles.safe}>
-        <FlatList
-          data={features}
-          keyExtractor={(item) => item.title}
-          refreshControl={<RefreshControl refreshing={stats.isFetching} onRefresh={() => stats.refetch()} tintColor={colors.primary} />}
-          ListHeaderComponent={(
-            <View style={styles.header}>
-              <View style={styles.greeting}>
-                <View style={[styles.logo, { backgroundColor: colors.primary }]}>
-                  <Ionicons name="leaf" size={20} color="#FFFFFF" />
-                </View>
-                <View>
-                  <Text style={[styles.brand, { color: colors.primary }]}>Dhara</Text>
-                  <Text style={[styles.eyebrow, { color: colors.muted }]}>FARM SMARTER</Text>
-                </View>
-              </View>
-              <Title>{user ? `Good morning, ${user.name || 'farmer'}` : 'Better decisions for your farm'}</Title>
-              <Body muted>{user ? 'Your farm insights are ready when you are.' : 'Simple agricultural intelligence to help every season grow.'}</Body>
-              <View style={[styles.hero, { backgroundColor: colors.primary }]}>
-                <Ionicons name="sunny-outline" size={30} color="#DCECCB" />
-                <View style={styles.heroText}>
-                  <Text style={styles.heroTitle}>Your farm, your advantage</Text>
-                  <Text style={styles.heroBody}>Use your soil and climate data to make confident choices.</Text>
-                </View>
-              </View>
-              <SectionLabel>Dhara at a glance</SectionLabel>
-              <View style={styles.stats}>
-                {[
-                  ['Users', stats.data?.total ?? 0],
-                  ['Crops', stats.data?.crop ?? 0],
-                  ['Disease', stats.data?.disease ?? 0],
-                  ['Fertilizer', stats.data?.fertilizer ?? 0],
-                ].map(([label, value]) => (
-                  <Card key={label}>
-                    <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
-                    <Text style={[styles.statLabel, { color: colors.muted }]}>{label}</Text>
-                  </Card>
-                ))}
-              </View>
+        <ScrollView contentContainerStyle={styles.list}>
+          <View style={styles.greeting}>
+            <View style={[styles.logo, { backgroundColor: colors.primary }]}>
+              <Ionicons name="leaf" size={16} color="#FFFFFF" />
             </View>
-          )}
-          renderItem={({ item }) => (
-            <Link href={item.href} asChild>
-              <Pressable>
-                <Card>
-                  <View style={styles.feature}>
-                    <View style={[styles.icon, { backgroundColor: colors.primarySoft }]}>
-                      <Ionicons name={item.icon} size={24} color={colors.primary} />
-                    </View>
-                    <View style={styles.featureText}>
-                      <Title small>{item.title}</Title>
-                      <Body muted>{item.body}</Body>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color={colors.muted} />
-                  </View>
-                </Card>
-              </Pressable>
-            </Link>
-          )}
-          ListFooterComponent={<Body muted>More crop health and fertilizer tools are coming soon.</Body>}
-          contentContainerStyle={styles.list}
-        />
+            <Text style={[styles.brand, { color: colors.primary }]}>Dhara</Text>
+          </View>
+
+          <Title>{user ? t('home.greeting', { name: user.name || 'farmer' }) : t('home.title')}</Title>
+          <Body muted>{user ? t('home.subtitleUser') : t('home.subtitleGuest')}</Body>
+
+          <Card tight>
+            <View style={styles.statStrip}>
+              {statItems.map(([label, value], i) => (
+                <View
+                  key={label}
+                  style={[styles.statItem, i > 0 && { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: colors.line }]}
+                >
+                  <Text style={[styles.statValue, { color: colors.text }]}>{value}</Text>
+                  <Text style={[styles.statLabel, { color: colors.muted }]} numberOfLines={2}>{label}</Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+
+          <SectionLabel>{t('home.tools')}</SectionLabel>
+          <Card tight>
+            {features.map((item, i) => (
+              <View key={item.title}>
+                {i > 0 ? <Divider /> : null}
+                <Link href={item.href} asChild>
+                  <ListRow icon={item.icon} iconBg={item.bg} iconColor={item.fg} title={item.title} subtitle={item.subtitle} />
+                </Link>
+              </View>
+            ))}
+          </Card>
+
+          <Body muted>{t('home.comingSoon')}</Body>
+        </ScrollView>
       </SafeAreaView>
     </Screen>
   );
@@ -92,19 +80,11 @@ export default function Home() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   list: { padding: spacing.lg, gap: spacing.md },
-  header: { gap: spacing.md, marginBottom: spacing.sm },
   greeting: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  logo: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  brand: { fontSize: 18, fontWeight: '900' },
-  eyebrow: { fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginTop: 1 },
-  hero: { borderRadius: 18, padding: spacing.lg, flexDirection: 'row', gap: spacing.md, alignItems: 'center', marginVertical: spacing.sm },
-  heroText: { flex: 1, gap: 4 },
-  heroTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800' },
-  heroBody: { color: '#E7F1E4', lineHeight: 20 },
-  stats: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  statValue: { fontSize: 24, fontWeight: '800' },
-  statLabel: { fontSize: 12, marginTop: 2 },
-  feature: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  icon: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  featureText: { flex: 1, gap: 3 },
+  logo: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  brand: { fontSize: 16, fontWeight: '800' },
+  statStrip: { flexDirection: 'row' },
+  statItem: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.xs },
+  statValue: { fontSize: 22, fontWeight: '800' },
+  statLabel: { fontSize: 12, marginTop: 2, textAlign: 'center' },
 });

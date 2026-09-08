@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
 import { z } from 'zod';
-import { Body, Button, Card, Field, Screen, Title, SectionLabel } from '@/components/ui';
+import { Body, Button, Card, Divider, Field, Screen, Title, SectionLabel, Badge } from '@/components/ui';
 import { predictCrop, scanSoilReport } from '@/services/api';
+import { useLocale } from '@/i18n';
 import { spacing } from '@/theme/spacing';
 import { useAppTheme } from '@/theme/use-app-theme';
 
@@ -22,31 +23,28 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
-const fields: Array<[keyof FormValues, string]> = [
-  ['nitrogen', 'Nitrogen N kg/ha'],
-  ['phosphorus', 'Phosphorus P kg/ha'],
-  ['potassium', 'Potassium K kg/ha'],
-  ['temperature', 'Temperature C'],
-  ['humidity', 'Humidity %'],
-  ['ph', 'pH level'],
-  ['rainfall', 'Rainfall mm'],
-];
 
 export default function CropScreen() {
   const { colors } = useAppTheme();
+  const { t } = useLocale();
   const [mode, setMode] = useState<'manual' | 'scan'>('manual');
   const { control, handleSubmit, setValue, formState: { errors } } = useForm<z.input<typeof schema>, unknown, FormValues>({ resolver: zodResolver(schema) });
   const predict = useMutation({ mutationFn: predictCrop });
   const scan = useMutation({ mutationFn: scanSoilReport });
 
+  const fields: Array<[keyof FormValues, string]> = [
+    ['nitrogen', t('crop.fields.nitrogen')],
+    ['phosphorus', t('crop.fields.phosphorus')],
+    ['potassium', t('crop.fields.potassium')],
+    ['temperature', t('crop.fields.temperature')],
+    ['humidity', t('crop.fields.humidity')],
+    ['ph', t('crop.fields.ph')],
+    ['rainfall', t('crop.fields.rainfall')],
+  ];
+
   const submit = handleSubmit((values) => predict.mutate({
-    N: values.nitrogen,
-    P: values.phosphorus,
-    K: values.potassium,
-    temperature: values.temperature,
-    humidity: values.humidity,
-    ph: values.ph,
-    rainfall: values.rainfall,
+    N: values.nitrogen, P: values.phosphorus, K: values.potassium,
+    temperature: values.temperature, humidity: values.humidity, ph: values.ph, rainfall: values.rainfall,
   }));
 
   const pickReport = async () => {
@@ -55,10 +53,8 @@ export default function CropScreen() {
     const asset = picked.assets[0];
     const result = await scan.mutateAsync({ uri: asset.uri, name: asset.name, mimeType: asset.mimeType });
     if (result.success && result.extracted) {
-      const map = { nitrogen: 'nitrogen', phosphorus: 'phosphorus', potassium: 'potassium', temperature: 'temperature', humidity: 'humidity', ph: 'ph', rainfall: 'rainfall' } as const;
-      Object.entries(map).forEach(([formKey, apiKey]) => {
-        const value = result.extracted[apiKey];
-        if (value !== undefined) setValue(formKey as keyof FormValues, value);
+      Object.entries(result.extracted).forEach(([apiKey, value]) => {
+        if (value !== undefined) setValue(apiKey as keyof FormValues, value as number);
       });
       setMode('manual');
     }
@@ -67,68 +63,72 @@ export default function CropScreen() {
   return (
     <Screen>
       <SafeAreaView style={styles.safe}>
-        <FlatList
-          data={predict.data?.results ?? []}
-          keyExtractor={(item) => item.crop}
-          ListHeaderComponent={(
-            <View style={styles.stack}>
-              <SectionLabel>Crop guidance</SectionLabel>
-              <Title>Find the right crop</Title>
-              <Body muted>Share a few details about your field and Dhara will suggest what can grow best.</Body>
-              <View style={[styles.segment, { backgroundColor: colors.primarySoft }]}>
-                {(['manual', 'scan'] as const).map((item) => (
-                  <Pressable key={item} onPress={() => setMode(item)} style={[styles.segmentItem, mode === item && { backgroundColor: colors.surface }]}>
-                    <Text style={[styles.segmentText, { color: mode === item ? colors.primary : colors.muted }]}>{item === 'manual' ? 'Enter values' : 'Scan report'}</Text>
-                  </Pressable>
-                ))}
+        <ScrollView contentContainerStyle={styles.list}>
+          <SectionLabel>{t('crop.label')}</SectionLabel>
+          <Title>{t('crop.title')}</Title>
+          <Body muted>{t('crop.subtitle')}</Body>
+
+          <View style={[styles.segment, { backgroundColor: colors.primarySoft }]}>
+            {(['manual', 'scan'] as const).map((item) => (
+              <Pressable key={item} onPress={() => setMode(item)} style={[styles.segmentItem, mode === item && { backgroundColor: colors.surface }]}>
+                <Text style={[styles.segmentText, { color: mode === item ? colors.primary : colors.muted }]}>
+                  {item === 'manual' ? t('crop.manual') : t('crop.scan')}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {mode === 'scan' ? (
+            <Card accent={colors.accent}>
+              <View style={styles.stack}>
+                <Title small>{t('crop.scanTitle')}</Title>
+                <Body muted>{t('crop.scanBody')}</Body>
+                <Button label={t('crop.choose')} icon="cloud-upload" onPress={pickReport} loading={scan.isPending} />
+                {scan.data ? <Badge label={t('crop.extracted', { count: Object.keys(scan.data.extracted || {}).length })} tone="success" /> : null}
               </View>
-              {mode === 'scan' ? (
-                <Card>
-                  <View style={styles.stack}>
-                    <Title small>Use a soil test report</Title>
-                    <Body muted>Upload a JPG, PNG, or PDF. We will read the values for you.</Body>
-                    <Button label="Choose a report" icon="cloud-upload" onPress={pickReport} loading={scan.isPending} />
-                    {scan.data ? <Body muted>{Object.keys(scan.data.extracted || {}).length} fields extracted.</Body> : null}
-                  </View>
-                </Card>
-              ) : null}
-              <Card>
-                <View style={styles.stack}>
-                  {fields.map(([name, label]) => (
-                    <Controller
-                      key={name}
-                      control={control}
-                      name={name}
-                      render={({ field: { onChange, value } }) => (
-                        <Field
-                          label={label}
-                          value={value === undefined ? '' : String(value)}
-                          onChangeText={onChange}
-                          keyboardType="decimal-pad"
-                          error={errors[name]?.message}
-                        />
-                      )}
-                    />
-                  ))}
-                  <Button label="Show my best crops" icon="analytics" onPress={submit} loading={predict.isPending} />
-                  {predict.isError ? <Body muted>Prediction failed. Check your inputs and backend connection.</Body> : null}
-                </View>
-              </Card>
-            </View>
-          )}
-          renderItem={({ item, index }) => (
+            </Card>
+          ) : (
             <Card>
-              <View style={styles.result}>
-                <View style={[styles.rank, { backgroundColor: colors.primarySoft }]}><Text style={{ color: colors.primary, fontWeight: '900' }}>{index + 1}</Text></View>
-                <View style={{ flex: 1 }}>
-                  <Title small>{item.crop}</Title>
-                  <Body muted>{item.probability}% match for your field</Body>
-                </View>
+              <View style={styles.stack}>
+                <SectionLabel>{t('crop.readings')}</SectionLabel>
+                {fields.map(([name, label]) => (
+                  <Controller
+                    key={name}
+                    control={control}
+                    name={name}
+                    render={({ field: { onChange, value } }) => (
+                      <Field label={label} value={value === undefined ? '' : String(value)} onChangeText={onChange} keyboardType="decimal-pad" error={errors[name]?.message} />
+                    )}
+                  />
+                ))}
+                <Button label={t('crop.submit')} icon="analytics" onPress={submit} loading={predict.isPending} />
+                {predict.isError ? <Body muted>{t('crop.error')}</Body> : null}
               </View>
             </Card>
           )}
-          contentContainerStyle={styles.list}
-        />
+
+          {predict.data?.results?.length ? (
+            <>
+              <SectionLabel>{t('crop.matches')}</SectionLabel>
+              <Card tight>
+                {predict.data.results.map((item, index) => (
+                  <View key={item.crop}>
+                    {index > 0 ? <Divider /> : null}
+                    <View style={styles.result}>
+                      <View style={[styles.rank, { backgroundColor: colors.primarySoft }]}>
+                        <Text style={{ color: colors.primary, fontWeight: '800' }}>{index + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Title small>{item.crop}</Title>
+                        <Body muted>{t('crop.matchPct', { pct: item.probability })}</Body>
+                      </View>
+                    </View>
+                  </View>
+                ))}
+              </Card>
+            </>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     </Screen>
   );
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   stack: { gap: spacing.md },
   segment: { borderRadius: 14, padding: 4, flexDirection: 'row' },
   segmentItem: { flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 11 },
-  segmentText: { fontWeight: '800' },
-  result: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  rank: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  segmentText: { fontWeight: '700' },
+  result: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm },
+  rank: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
 });

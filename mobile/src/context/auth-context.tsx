@@ -21,23 +21,50 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(true);
 
   const refreshUser = async () => {
-    const current = await api.getCurrentUser();
-    setUser(current);
-    if (current) await setCachedUser(current);
-    else await clearCachedUser();
+    try {
+      const current = await api.getCurrentUser();
+
+      setUser(current);
+
+      if (current) {
+        await setCachedUser(current);
+      } else {
+        await clearCachedUser();
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+
+      setUser(null);
+      await clearCachedUser();
+    }
   };
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
-      const cached = await getCachedUser<User>();
-      if (mounted && cached) setUser(cached);
       try {
+        const cached = await getCachedUser<User>();
+
+        if (mounted && cached) {
+          setUser(cached);
+        }
+
         await refreshUser();
+      } catch (error) {
+        console.error('AUTH STARTUP ERROR:', error);
+
+        // Don't let authentication failure prevent the app from loading.
+        if (mounted) {
+          setUser(null);
+        }
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     })();
+
     return () => {
       mounted = false;
     };

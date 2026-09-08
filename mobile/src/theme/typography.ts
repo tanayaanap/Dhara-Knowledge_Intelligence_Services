@@ -5,4 +5,6 @@ export const typography = {
   body: 16,
   small: 13,
   tiny: 11,
+  h3: 17,
+  eyebrow: 12,
 };

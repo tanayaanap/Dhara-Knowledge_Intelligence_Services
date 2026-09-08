@@ -3,5 +3,8 @@ __pycache__/
 *.pkl
 instance/
 
-mobile/node_modules/
 frontend/node_modules/
+.env
+*.env
+backend/.env
+frontend/.env
