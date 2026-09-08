@@ -40,7 +40,9 @@ except ImportError:
     OCR_AVAILABLE = False
 
 # ── Gemini client ────────────────────────────────────────────────────────────
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyAgAQMm36VUjgdQqixbzYUSnxjs1GMhjc8")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY environment variable is not set")
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
 # ── App setup ────────────────────────────────────────────────────────────────
@@ -102,6 +104,77 @@ def safe_float(val, default=0.0):
 
 
 # ── OCR: real Soil Health Card field extraction ──────────────────────────────
+# ── Unit normalization ───────────────────────────────────────────────────────
+# Different labs/reports report N/P/K in different units. The model expects
+# kg/ha for N/P/K and ppm for micronutrients (S, Zn, Fe, Mn, Cu, B) -- a
+# "found" value in the wrong unit is worse than a missing one, since it looks
+# confident but silently feeds a wrong number into the model.
+#
+# CAVEAT: the ppm<->kg/ha conversion factor (~2x) is a common agronomic
+# approximation for a standard 0-15cm sampling depth and typical soil bulk
+# density -- it is NOT an exact physical conversion (that requires knowing
+# actual bulk density and sampling depth, which reports rarely state). Treat
+# converted values as approximate, and prefer a report that already states
+# kg/ha directly when one is available.
+NPK_TO_KGHA = {
+    "kg/ha": 1.0, "kg / ha": 1.0, "kgha": 1.0,
+    "lbs/a": 1.121, "lbs/acre": 1.121, "lb/a": 1.121, "lb/ac": 1.121,
+    "kg/acre": 2.471,
+    "ppm": 2.0, "mg/kg": 2.0,   # approximate -- see caveat above
+}
+MICRO_TO_PPM = {
+    "ppm": 1.0, "mg/kg": 1.0,
+    "kg/ha": 0.5,   # approximate inverse of NPK_TO_KGHA's ppm factor
+}
+UNIT_TOKEN_RE = re.compile(
+    r"(kg\s*/\s*ha|kg\s*/\s*acre|lbs?\s*/\s*a(?:cre)?|lb\s*/\s*ac|ppm|mg\s*/\s*kg)"
+)
+
+
+def normalize_units(extracted: dict, raw_text: str) -> tuple:
+    """
+    For each extracted field, look for a unit token near where its label
+    appears in the text and convert to the model's expected unit if the
+    detected unit differs. Returns (normalized_dict, notes_dict) where
+    notes_dict records any conversion applied, for UI transparency.
+    """
+    t = re.sub(r"\s*\n\s*", " ", raw_text.lower())
+    normalized = dict(extracted)
+    notes = {}
+
+    npk_fields   = {"nitrogen", "phosphorus", "potassium"}
+    micro_fields = {"sulphur", "zinc", "iron", "manganese", "copper", "boron"}
+
+    label_words = {
+        "nitrogen": "nitrogen", "phosphorus": "phosphorus", "potassium": "potassium",
+        "sulphur": "sulphur", "zinc": "zinc", "iron": "iron",
+        "manganese": "manganese", "copper": "copper", "boron": "boron",
+    }
+
+    for field, value in extracted.items():
+        if field not in npk_fields and field not in micro_fields:
+            continue
+        label = label_words.get(field)
+        if not label:
+            continue
+        idx = t.find(label)
+        if idx == -1:
+            continue
+        window = t[idx: idx + 60]
+        m = UNIT_TOKEN_RE.search(window)
+        if not m:
+            continue
+        unit = re.sub(r"\s+", "", m.group(1))
+        table = NPK_TO_KGHA if field in npk_fields else MICRO_TO_PPM
+        factor = table.get(unit)
+        if factor is not None and factor != 1.0:
+            converted = round(value * factor, 3)
+            notes[field] = f"converted from {unit} (x{factor}, approximate)"
+            normalized[field] = converted
+
+    return normalized, notes
+
+
 def parse_soil_report(text: str) -> dict:
     """
     Robust extraction of Soil Health Card / soil test report parameters.
@@ -126,7 +199,11 @@ def parse_soil_report(text: str) -> dict:
       - US extension service reports (lbs/A, Mehlich 3)
       - Lab printouts with ppm, kg/ha, meq/100g
     """
-    t = text.lower()
+    # Table-formatted PDFs (native text extraction, pdfplumber, or even
+    # clean OCR) put each cell on its own line -- "Available Nitrogen (N)"
+    # then "245" on the next line. Collapse newlines to spaces so patterns
+    # below can bridge across what were originally separate table cells.
+    t = re.sub(r"\s*\n\s*", " ", text.lower())
 
     # ── Ordered pattern lists (first match wins) ─────────────────────────────
     # CRITICAL: patterns with negative lookahead (?!\\s*[-]\\d) skip range rows
@@ -134,6 +211,7 @@ def parse_soil_report(text: str) -> dict:
     PATTERNS = {
         # ── Macronutrients ────────────────────────────────────────────────────
         "nitrogen": [
+            r"avail(?:able|\.)\s*nitrogen\s*\(?\s*n\s*\)?\s*[:\-]?\s*(\d+\.?\d*)(?!\s*[-]\d)",
             r"avail(?:able|\.)\s*n(?:itrogen)?\s*[:\-]?\s*(\d+\.?\d*)(?!\s*[-]\d)",
             r"n\s*\(kg/ha\)\s*(\d+\.?\d*)",
             r"nitrogen\s*[^\n\d]{0,20}(\d+\.?\d*)(?!\s*[-]\d)",
@@ -177,6 +255,7 @@ def parse_soil_report(text: str) -> dict:
 
         # ── EC ────────────────────────────────────────────────────────────────
         "ec": [
+            r"electrical\s+conductivity\s*\(?\s*ec\s*\)?\s*[:\-]?\s*(\d+\.?\d*)",
             r"electrical\s+conductivity\s*[:\-]?\s*(\d+\.?\d*)",
             r"\be\.?c\.?\b\s*[:\-]?\s*(\d+\.?\d*)",
         ],
@@ -184,6 +263,7 @@ def parse_soil_report(text: str) -> dict:
         # ── Organic Carbon / Organic Matter ───────────────────────────────────
         # NOTE: OC matched first; if "organic matter" hits, flag for OM→OC conv.
         "oc": [
+            r"organic\s+carbon\s*\(?\s*oc\s*\)?\s*[:\-]?\s*(\d+\.?\d*)",
             r"organic\s+carbon\s*[:\-]?\s*(\d+\.?\d*)",
             r"\bo\.?\s*c\.?\b\s*[:\-]?\s*(\d+\.?\d*)",    # O.C. / OC
             r"organic\s+matter\s*[:\-]?\s*(\d+\.?\d*)",   # OM → converted below
@@ -296,10 +376,10 @@ OCR text:
 ---"""
 
     try:
-        resp = gemini_client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
+        resp = gemini_client.interactions.create(
+            model="gemini-3.6-flash", input=prompt
         )
-        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", resp.text.strip(), flags=re.MULTILINE)
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", resp.output_text.strip(), flags=re.MULTILINE)
         data = json.loads(cleaned)
         out = {}
         for k in SOIL_FIELD_KEYS:
@@ -531,6 +611,168 @@ def generate_soil_insights(extracted: dict) -> list:
     return insights
 
 
+# ── Crop Recommendation Explanation (grounded in the actual training data) ──
+# Loads real per-crop statistics computed from Crop_recommendation.csv (the
+# exact CSV the model was trained on) so every claim in the explanation is a
+# checkable number, not an LLM guess. Also flags when an input value falls
+# outside anything the model has ever seen in training -- this matters more
+# than it sounds: real Indian Soil Health Card N/K readings are commonly
+# 200-400+ kg/ha, while this dataset's N/K values only ever range 0-140 /
+# 5-205. Feeding real SHC numbers into a model trained on that narrower scale
+# means it is extrapolating, not reasoning -- the confidence score it returns
+# is not trustworthy in that region, and the UI should say so plainly rather
+# than present a clean-looking percentage.
+try:
+    with open(os.path.join(BASE_DIR, "crop_stats.json")) as _f:
+        _crop_stats_data = json.load(_f)
+    CROP_STATS       = _crop_stats_data["crop_stats"]
+    TRAINING_RANGES  = _crop_stats_data["training_ranges"]
+except FileNotFoundError:
+    print("WARNING: crop_stats.json missing -- crop explanations will be unavailable. "
+          "Run generate_crop_stats.py against your training CSV to create it.")
+    CROP_STATS, TRAINING_RANGES = {}, {}
+
+EXPLAIN_FEATURES = ["N", "P", "K", "temperature", "humidity", "ph", "rainfall"]
+FEATURE_LABELS = {
+    "N": "Nitrogen", "P": "Phosphorus", "K": "Potassium",
+    "temperature": "Temperature", "humidity": "Humidity",
+    "ph": "pH", "rainfall": "Rainfall",
+}
+
+
+def check_out_of_training_range(inputs: dict) -> list:
+    """
+    Returns a list of {feature, value, training_min, training_max} for any
+    input value that falls outside what the model saw during training --
+    i.e. the model is extrapolating for this value, not interpolating.
+    """
+    flags = []
+    for feat in EXPLAIN_FEATURES:
+        v = inputs.get(feat)
+        rng = TRAINING_RANGES.get(feat)
+        if v is None or not rng:
+            continue
+        if v < rng["min"] or v > rng["max"]:
+            flags.append({
+                "feature": FEATURE_LABELS[feat],
+                "value": v,
+                "training_min": rng["min"],
+                "training_max": rng["max"],
+            })
+    return flags
+
+
+def build_crop_factors(crop: str, inputs: dict) -> list:
+    """
+    Compares the user's actual soil/climate values against the REAL
+    quartile range (p25-p75) that crop occupied in the training data, plus
+    its absolute min/max. Returns one factor per feature with a checkable
+    status -- this is what the explanation narrative is built from, so the
+    LLM (if used) can only phrase these facts, not invent new ones.
+    """
+    stats = CROP_STATS.get(crop)
+    if not stats:
+        return []
+
+    factors = []
+    for feat in EXPLAIN_FEATURES:
+        v = inputs.get(feat)
+        s = stats.get(feat)
+        if v is None or not s:
+            continue
+
+        if s["p25"] <= v <= s["p75"]:
+            status = "optimal"
+        elif s["min"] <= v < s["p25"] or s["p75"] < v <= s["max"]:
+            status = "acceptable"
+        else:
+            status = "below" if v < s["min"] else "above"
+
+        factors.append({
+            "feature":       FEATURE_LABELS[feat],
+            "value":         v,
+            "typical_low":   s["p25"],
+            "typical_high":  s["p75"],
+            "observed_low":  s["min"],
+            "observed_high": s["max"],
+            "status":        status,   # optimal | acceptable | below | above
+        })
+    return factors
+
+
+def generate_crop_explanation(crop: str, confidence: float, inputs: dict) -> dict:
+    """
+    Builds the full explanation payload for the top-recommended crop:
+      - factors: per-feature comparison against real training-data ranges
+      - out_of_range: inputs the model never saw in training (low-trust flag)
+      - narrative: short natural-language summary, grounded in the factors
+                   above (Gemini phrases the computed facts; it does not
+                   invent numbers). Falls back to a templated sentence if
+                   Gemini is unavailable.
+    """
+    factors     = build_crop_factors(crop, inputs)
+    out_of_range = check_out_of_training_range(inputs)
+
+    narrative = None
+    if factors:
+        facts_lines = "\n".join(
+            f"- {f['feature']}: your value {f['value']} vs typical {crop} range "
+            f"{f['typical_low']}-{f['typical_high']} ({f['status']})"
+            for f in factors
+        )
+        oor_lines = "\n".join(
+            f"- {o['feature']}={o['value']} is outside anything the model was "
+            f"trained on (training range {o['training_min']}-{o['training_max']})"
+            for o in out_of_range
+        ) or "None."
+
+        prompt = f"""Write a short (3-4 sentence) farmer-facing explanation of
+why "{crop}" was recommended, using ONLY the facts below -- do not invent
+any numbers or claims not listed here. Be direct and honest: if there are
+out-of-training-range warnings, mention that the recommendation is less
+reliable for those specific readings, in plain language, near the end.
+
+Confidence score: {confidence}%
+
+Factors (your soil value vs. typical range for this crop):
+{facts_lines}
+
+Values outside the model's training data (lower trust):
+{oor_lines}
+"""
+        try:
+            resp = gemini_client.interactions.create(
+                model="gemini-3.6-flash", input=prompt
+            )
+            narrative = resp.output_text.strip()
+        except Exception as e:
+            print("Gemini explanation generation failed:", e)
+
+    if not narrative:
+        # Deterministic fallback -- no external dependency, always available.
+        optimal_feats = [f["feature"] for f in factors if f["status"] == "optimal"]
+        narrative = (
+            f"{crop.capitalize()} was the top match at {confidence}% confidence"
+            + (f", with {', '.join(optimal_feats)} in the typical range for this crop"
+               if optimal_feats else "")
+            + "."
+        )
+        if out_of_range:
+            oor_names = ", ".join(o["feature"] for o in out_of_range)
+            narrative += (
+                f" Note: {oor_names} fall outside the range the model was trained "
+                f"on, so this recommendation should be treated as a rough estimate "
+                f"for those readings."
+            )
+
+    return {
+        "narrative":    narrative,
+        "factors":      factors,
+        "out_of_range": out_of_range,
+        "low_confidence_warning": len(out_of_range) > 0,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # AUTH ROUTES
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -659,6 +901,16 @@ def predict():
         extracted_for_insights = {"nitrogen": N, "phosphorus": P, "potassium": K, "ph": ph}
         insights = generate_soil_insights(extracted_for_insights)
 
+        # Grounded "why this crop" explanation, built from real training-data
+        # ranges for the top result -- see generate_crop_explanation() above.
+        explanation = None
+        if results:
+            explanation = generate_crop_explanation(
+                results[0]["crop"], results[0]["probability"],
+                {"N": N, "P": P, "K": K, "ph": ph,
+                 "temperature": temperature, "humidity": humidity, "rainfall": rainfall},
+            )
+
         # Save to history
         if "user_id" in session and results:
             h = PredictionHistory(
@@ -672,7 +924,7 @@ def predict():
             db.session.add(h)
             db.session.commit()
 
-        response = {"results": results, "insights": insights}
+        response = {"results": results, "insights": insights, "explanation": explanation}
         if climate_fetched:
             response["climate"] = climate_fetched
         return jsonify(response)
@@ -764,6 +1016,9 @@ def ocr_scan():
         climate = fetch_climate_data(location)
         print(f"[OCR] Location used for climate: '{location}' → {climate}")
 
+        # ── Step 3.5: Normalize units (kg/ha for N/P/K, ppm for micronutrients) ──
+        extracted, unit_notes = normalize_units(extracted, raw_text)
+
         # ── Step 4: Build model inputs ───────────────────────────────────────
         N           = extracted.get("nitrogen")   or 50.0
         P           = extracted.get("phosphorus") or 30.0
@@ -785,6 +1040,14 @@ def ocr_scan():
         results  = predict_crop(N, P, K, ph, temperature, humidity, rainfall)
         insights = generate_soil_insights(extracted)
 
+        explanation = None
+        if results:
+            explanation = generate_crop_explanation(
+                results[0]["crop"], results[0]["probability"],
+                {"N": N, "P": P, "K": K, "ph": ph,
+                 "temperature": temperature, "humidity": humidity, "rainfall": rainfall},
+            )
+
         # ── Step 5: Save to history ──────────────────────────────────────────
         if "user_id" in session and results:
             h = PredictionHistory(
@@ -803,9 +1066,11 @@ def ocr_scan():
             "extracted":    extracted,
             "used_defaults": used_defaults,
             "gemini_filled": gemini_filled,   # fields the regex missed but Gemini found
+            "unit_notes":   unit_notes,       # any unit conversions applied, for transparency
             "climate":      climate,
             "results":      results,
             "insights":     insights,
+            "explanation":  explanation,
             "raw_text":     raw_text[:1500],  # first 1500 chars for debug
         })
 
@@ -887,10 +1152,10 @@ def chat():
             "When relevant, refer to ICAR/SHC recommendations.\n\n"
             f"User: {msg}"
         )
-        resp = gemini_client.models.generate_content(
-            model="gemini-2.5-flash", contents=prompt
+        resp = gemini_client.interactions.create(
+            model="gemini-3.6-flash", input=prompt
         )
-        return jsonify({"reply": resp.text})
+        return jsonify({"reply": resp.output_text})
     except Exception as e:
         print("Gemini error:", e)
         return jsonify({"reply": f"Sorry, the assistant is temporarily unavailable. ({e})"})

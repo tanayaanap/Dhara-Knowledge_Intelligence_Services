@@ -1,7 +1,11 @@
 import React, { useState, useRef } from 'react'
 import axios from 'axios';
 
-const BACKEND_URL = "http://127.0.0.1:5000";
+// Relative path (routed through the CRA dev-server proxy) instead of an
+// absolute URL -- an absolute URL makes every request cross-origin, and the
+// browser then refuses to attach the Flask session cookie, so the backend
+// never knows who's logged in (breaks location lookup + history saving).
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 
 const INPUT_FIELDS = [
   { name: 'nitrogen', label: 'Nitrogen (N)', unit: 'kg/ha', icon: '🔵' },
@@ -12,6 +16,168 @@ const INPUT_FIELDS = [
   { name: 'ph', label: 'pH Level', unit: '', icon: '⚗️' },
   { name: 'rainfall', label: 'Rainfall', unit: 'mm', icon: '🌧️' },
 ];
+
+// The 12 Soil Health Card parameters the backend's OCR pipeline extracts.
+// Keys must match app.py's SOIL_FIELD_KEYS exactly.
+const SHC_FIELDS = [
+  { key: 'nitrogen',   label: 'Nitrogen (N)',              unit: 'kg/ha', icon: '🌱' },
+  { key: 'phosphorus', label: 'Phosphorus (P)',             unit: 'kg/ha', icon: '🧪' },
+  { key: 'potassium',  label: 'Potassium (K)',              unit: 'kg/ha', icon: '💊' },
+  { key: 'ph',         label: 'pH',                         unit: '',      icon: '⚗️' },
+  { key: 'ec',         label: 'Electrical Conductivity',    unit: 'dS/m',  icon: '⚡' },
+  { key: 'oc',         label: 'Organic Carbon',             unit: '%',     icon: '🌿' },
+  { key: 'sulphur',    label: 'Sulphur (S)',                unit: 'ppm',   icon: '🟡' },
+  { key: 'zinc',       label: 'Zinc (Zn)',                  unit: 'ppm',   icon: '🔘' },
+  { key: 'iron',       label: 'Iron (Fe)',                  unit: 'ppm',   icon: '⚙️' },
+  { key: 'manganese',  label: 'Manganese (Mn)',             unit: 'ppm',   icon: '🔩' },
+  { key: 'copper',     label: 'Copper (Cu)',                unit: 'ppm',   icon: '🟠' },
+  { key: 'boron',      label: 'Boron (B)',                  unit: 'ppm',   icon: '🔸' },
+];
+
+const STATUS_STYLES = {
+  optimal:    { text: 'Optimal for this crop', className: 'bg-green-100 text-green-700' },
+  acceptable: { text: 'Acceptable',            className: 'bg-blue-100 text-blue-700' },
+  below:      { text: 'Below typical range',   className: 'bg-amber-100 text-amber-700' },
+  above:      { text: 'Above typical range',   className: 'bg-amber-100 text-amber-700' },
+};
+
+function StatusBadge({ status }) {
+  const s = STATUS_STYLES[status] || STATUS_STYLES.acceptable;
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${s.className}`}>
+      {s.text}
+    </span>
+  );
+}
+
+// Out-of-training-range warning -- shown when the model is extrapolating
+// beyond anything it saw during training, so the confidence score shouldn't
+// be trusted at face value. See app.py's check_out_of_training_range().
+function OutOfRangeWarning({ items }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-800">
+      <div className="font-semibold mb-1 flex items-center gap-1.5">
+        <span>⚠️</span> Lower-confidence result
+      </div>
+      <p>
+        {items.map((o, i) => (
+          <span key={o.feature}>
+            {i > 0 && ', '}
+            <strong>{o.feature}</strong> ({o.value}, model was trained on {o.training_min}–{o.training_max})
+          </span>
+        ))}
+        {' '}fall{items.length === 1 ? 's' : ''} outside the range this model has ever seen in training.
+        Treat this recommendation as a rough estimate rather than a precise result.
+      </p>
+    </div>
+  );
+}
+
+function ExplanationFactors({ factors }) {
+  if (!factors || factors.length === 0) return null;
+  return (
+    <div className="bg-white rounded-xl p-6 shadow-md">
+      <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
+        Why this crop — factor breakdown
+      </h3>
+      <div className="space-y-3">
+        {factors.map((f) => (
+          <div key={f.feature} className="flex items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+            <div className="min-w-0">
+              <div className="font-medium text-gray-800">{f.feature}</div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                Your value: <span className="font-medium text-gray-700">{f.value}</span>
+                {' · '}Typical range for this crop: {f.typical_low}–{f.typical_high}
+              </div>
+            </div>
+            <StatusBadge status={f.status} />
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-gray-400 mt-4">
+        Ranges are computed directly from the model's training data (real min–max and typical values seen for this crop), not estimated.
+      </p>
+    </div>
+  );
+}
+
+function ResultBlock({ results, insights, explanation }) {
+  if (!results || results.length === 0) return null;
+  const top = results[0];
+  const alternatives = results.slice(1);
+
+  return (
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-xl p-8 animate-fade-in mt-8" data-testid="crop-result">
+      <OutOfRangeWarning items={explanation?.out_of_range} />
+
+      <div className="text-center mb-6">
+        <div className="inline-block p-6 bg-white rounded-full shadow-lg mb-4">
+          <span className="text-6xl">🎉</span>
+        </div>
+        <h2 className="text-3xl font-bold text-gray-800 mb-3">Prediction Result</h2>
+        <div className={`inline-block px-6 py-2 rounded-full text-sm font-semibold shadow-sm ${
+          explanation?.low_confidence_warning ? 'bg-amber-500 text-white' : 'bg-green-500 text-white'
+        }`}>
+          {top.probability}% Confidence {explanation?.low_confidence_warning && '(use with caution)'}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
+        <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wider">Recommended Crop</h3>
+        <p className="text-4xl font-bold text-green-600 capitalize mb-4" data-testid="predicted-crop">
+          {top.crop}
+        </p>
+        {explanation?.narrative && (
+          <p className="text-gray-700 leading-relaxed border-t border-gray-100 pt-4">
+            {explanation.narrative}
+          </p>
+        )}
+      </div>
+
+      <div className="mb-6">
+        <ExplanationFactors factors={explanation?.factors} />
+      </div>
+
+      {insights && insights.length > 0 && (
+        <div className="bg-white rounded-xl p-6 shadow-md mb-6">
+          <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">
+            Soil Health Insights <span className="normal-case font-normal text-gray-400">(ICAR / SHC reference bands)</span>
+          </h3>
+          <div className="space-y-2">
+            {insights.map((ins, i) => (
+              <div
+                key={i}
+                className={`p-3 rounded-lg text-sm ${
+                  ins.severity === 'warning' ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'
+                }`}
+              >
+                <span className="font-semibold">{ins.parameter}:</span> {ins.advice}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {alternatives.length > 0 && (
+        <div className="bg-white rounded-xl p-6 shadow-md">
+          <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Alternative Crops</h3>
+          <div className="flex flex-wrap gap-2">
+            {alternatives.map((alt, index) => (
+              <span
+                key={index}
+                className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium capitalize flex items-center gap-1"
+              >
+                {alt.crop}
+                <span className="text-green-500 text-xs">({alt.probability}%)</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CropPrediction() {
   const [activeTab, setActiveTab] = useState('manual');
@@ -53,17 +219,20 @@ function CropPrediction() {
     setResult(null);
 
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/predict`, {
-        N: Number(formData.nitrogen),
-        P: Number(formData.phosphorus),
-        K: Number(formData.potassium),
-        temperature: Number(formData.temperature),
-        humidity: Number(formData.humidity),
-        ph: Number(formData.ph),
-        rainfall: Number(formData.rainfall),
-      });
+      const response = await axios.post(
+        `${BACKEND_URL}/api/predict`,
+        {
+          N: Number(formData.nitrogen),
+          P: Number(formData.phosphorus),
+          K: Number(formData.potassium),
+          temperature: Number(formData.temperature),
+          humidity: Number(formData.humidity),
+          ph: Number(formData.ph),
+          rainfall: Number(formData.rainfall),
+        },
+        { withCredentials: true }
+      );
 
-      console.log("API RESPONSE:", response.data);
       setResult(response.data);
     } catch (err) {
       console.log("ERROR:", err.response?.data || err.message);
@@ -125,18 +294,26 @@ function CropPrediction() {
     }
   };
 
+  // Maps the extracted SHC fields (nitrogen/phosphorus/potassium/ph) onto the
+  // manual form's model inputs. Micronutrients (S, Zn, Fe, Mn, Cu, B) aren't
+  // model inputs -- they only feed the Soil Health Insights panel -- so they
+  // aren't copied here.
   const useExtractedValues = () => {
     if (!scanResult?.extracted) return;
     const updated = { ...formData };
-    Object.entries(scanResult.extracted).forEach(([key, value]) => {
-      if (key in updated) updated[key] = String(value);
+    ['nitrogen', 'phosphorus', 'potassium', 'ph'].forEach((key) => {
+      if (scanResult.extracted[key] !== undefined && scanResult.extracted[key] !== null) {
+        updated[key] = String(scanResult.extracted[key]);
+      }
     });
+    if (scanResult.climate) {
+      updated.temperature = String(scanResult.climate.temperature);
+      updated.humidity = String(scanResult.climate.humidity);
+      updated.rainfall = String(scanResult.climate.rainfall);
+    }
     setFormData(updated);
     setActiveTab('manual');
   };
-
-  const topCrop = result?.results?.[0];
-  const alternatives = result?.results?.slice(1) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white py-12">
@@ -218,6 +395,14 @@ function CropPrediction() {
                   ) : 'Predict Best Crop'}
                 </button>
               </form>
+
+              {error && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mt-6 rounded-xl" data-testid="error-message">
+                  <p className="text-red-700">{error}</p>
+                </div>
+              )}
+
+              <ResultBlock results={result?.results} insights={result?.insights} explanation={result?.explanation} />
             </div>
           )}
           {/* END Manual Entry Tab */}
@@ -257,7 +442,6 @@ function CropPrediction() {
                   Supports: JPG, PNG, PDF
                 </span>
               </div>
-              {/* END Drop Zone */}
 
               {/* Selected File Preview */}
               {uploadFile && (
@@ -285,7 +469,6 @@ function CropPrediction() {
                   </button>
                 </div>
               )}
-              {/* END Selected File Preview */}
 
               {/* Scan Error */}
               {scanError && (
@@ -316,42 +499,42 @@ function CropPrediction() {
               {scanResult && (
                 <div className="mt-6 p-4 bg-white rounded-xl shadow">
 
-                  <h3 className="font-bold text-lg mb-3">Extracted Values</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-lg">Extracted Parameters</h3>
+                    <span className="text-xs font-medium text-gray-500">
+                      {Object.keys(scanResult.extracted || {}).length} of {SHC_FIELDS.length} found
+                    </span>
+                  </div>
 
-                  {/* ✅ TABLE FORMAT */}
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm border rounded-xl overflow-hidden">
                       <thead className="bg-green-100 text-gray-700">
                         <tr>
                           <th className="p-2 text-left">Parameter</th>
-                          <th className="p-2 text-left">Extracted</th>
-                          <th className="p-2 text-left">Suggested</th>
+                          <th className="p-2 text-left">Value</th>
+                          <th className="p-2 text-left">Unit</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {[
-                          { key: "nitrogen", label: "🌱 Nitrogen", def: 50 },
-                          { key: "phosphorus", label: "🧪 Phosphorus", def: 50 },
-                          { key: "potassium", label: "💊 Potassium", def: 50 },
-                          { key: "temperature", label: "🌡️ Temperature", def: 25 },
-                          { key: "humidity", label: "💧 Humidity", def: 60 },
-                          { key: "ph", label: "⚗️ pH", def: 6.5 },
-                          { key: "rainfall", label: "🌧️ Rainfall", def: 100 },
-                        ].map((item) => {
+                        {SHC_FIELDS.map((item) => {
                           const value = scanResult.extracted[item.key];
                           const missing = value === null || value === undefined;
+                          const fromGemini = scanResult.gemini_filled?.includes(item.key);
+                          const unitNote = scanResult.unit_notes?.[item.key];
 
                           return (
                             <tr key={item.key} className="border-t">
-                              <td className="p-2">{item.label}</td>
-
-                              <td className={`p-2 ${missing ? "text-red-500" : ""}`}>
-                                {missing ? "Not found ❌" : value}
+                              <td className="p-2">{item.icon} {item.label}</td>
+                              <td className={`p-2 ${missing ? "text-gray-400" : "text-gray-800 font-medium"}`}>
+                                {missing ? "Not found" : value}
+                                {fromGemini && (
+                                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600">AI-assisted</span>
+                                )}
+                                {unitNote && (
+                                  <div className="text-xs text-gray-400 mt-0.5">{unitNote}</div>
+                                )}
                               </td>
-
-                              <td className="p-2 text-green-700 font-medium">
-                                {missing ? `${item.def} (default)` : "✔ OK"}
-                              </td>
+                              <td className="p-2 text-gray-500">{item.unit || '—'}</td>
                             </tr>
                           );
                         })}
@@ -359,106 +542,46 @@ function CropPrediction() {
                     </table>
                   </div>
 
-                  {/* Button */}
-                  {Object.keys(scanResult.extracted).length > 0 ? (
-                    <button
-                      onClick={useExtractedValues}
-                      className="w-full mt-4 py-2 bg-green-500 text-white rounded-lg"
-                    >
-                      Use These Values
-                    </button>
-                  ) : (
-                    <p className="mt-4 text-center text-sm text-gray-500">
-                      No values extracted.
-                    </p>
-                  )}
-
-                  {/* ✅ TOP 3–4 CROPS */}
-                  {scanResult?.results && scanResult.results.length > 0 && (
-                    <div className="mt-6 bg-green-50 p-4 rounded-xl">
-                      <h3 className="font-bold mb-3">🌾 Top Crop Recommendations</h3>
-
-                      <div className="space-y-2">
-                        {scanResult.results.slice(0, 4).map((crop, index) => (
-                          <div
-                            key={index}
-                            className={`flex justify-between items-center p-3 rounded-lg ${
-                              index === 0
-                                ? "bg-green-200 font-semibold"
-                                : "bg-white"
-                            }`}
-                          >
-                            <span>#{index + 1} {crop.crop}</span>
-                            <span className="text-sm text-gray-600">
-                              {crop.probability}%
-                            </span>
-                          </div>
-                        ))}
+                  {/* Climate data (never comes from the report itself -- fetched by location) */}
+                  {scanResult.climate && (
+                    <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                      <div className="font-semibold mb-1">
+                        🌦️ Climate data {scanResult.climate.location_used
+                          ? `for ${scanResult.climate.location_used}`
+                          : '— using defaults (add your location in Profile for accurate results)'}
+                      </div>
+                      <div className="flex gap-4 flex-wrap mt-1 text-xs">
+                        <span>🌡️ {scanResult.climate.temperature}°C avg temp</span>
+                        <span>💧 {scanResult.climate.humidity}% avg humidity</span>
+                        <span>🌧️ {scanResult.climate.rainfall}mm annual rain</span>
                       </div>
                     </div>
                   )}
-                  {/* END OCR Prediction Result */}
 
+                  {Object.keys(scanResult.extracted || {}).length > 0 ? (
+                    <button
+                      onClick={useExtractedValues}
+                      className="w-full mt-4 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+                    >
+                      Use These Values in Manual Form
+                    </button>
+                  ) : (
+                    <p className="mt-4 text-center text-sm text-gray-500">
+                      No values extracted — try a clearer scan, or enter values manually.
+                    </p>
+                  )}
+
+                  <ResultBlock results={scanResult.results} insights={scanResult.insights} explanation={scanResult.explanation} />
                 </div>
               )}
               {/* END Extraction Results */}
-
 
             </div>
           )}
           {/* END Upload Report Tab */}
 
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-xl" data-testid="error-message">
-              <p className="text-red-700">{error}</p>
-            </div>
-          )}
-
-          {/* Prediction Result */}
-          {result && topCrop && (
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-xl p-8 animate-fade-in" data-testid="crop-result">
-              <div className="text-center mb-8">
-                <div className="inline-block p-6 bg-white rounded-full shadow-lg mb-4">
-                  <span className="text-6xl">🎉</span>
-                </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-3">Prediction Result</h2>
-                <div className="inline-block bg-green-500 text-white px-6 py-2 rounded-full text-sm font-semibold shadow-sm">
-                  {topCrop.probability}% Confidence
-                </div>
-              </div>
-
-              <div className="bg-white rounded-xl p-6 mb-6 shadow-md">
-                <h3 className="text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wider">Recommended Crop</h3>
-                <p className="text-4xl font-bold text-green-600 capitalize" data-testid="predicted-crop">
-                  {topCrop.crop}
-                </p>
-              </div>
-
-              {alternatives.length > 0 && (
-                <div className="bg-white rounded-xl p-6 shadow-md">
-                  <h3 className="text-sm font-semibold text-gray-500 mb-4 uppercase tracking-wider">Alternative Crops</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {alternatives.map((alt, index) => (
-                      <span
-                        key={index}
-                        className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-medium capitalize flex items-center gap-1"
-                      >
-                        {alt.crop}
-                        <span className="text-green-500 text-xs">({alt.probability}%)</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {/* END Prediction Result */}
-
         </div>
-        {/* END max-w-4xl */}
       </div>
-      {/* END container */}
     </div>
   );
 }
