@@ -7,6 +7,10 @@ import {
   OcrScanResult,
   Stats,
   User,
+  FertilizerInput, 
+  FertilizerResult, 
+  MlOptions, 
+  DiseaseResult
 } from '@/types/api';
 import { getSessionCookie, setSessionCookie } from './session-store';
 
@@ -89,4 +93,29 @@ export async function scanSoilReport(file: { uri: string; name: string; mimeType
 export async function sendChatMessage(message: string) {
   const { data } = await api.post<{ reply: string }>('/api/chat', { message });
   return data.reply;
+}
+
+// api.ts — add these exports
+
+export async function getMlOptions() {
+  const { data } = await api.get<MlOptions>('/api/ml-options');
+  return data;
+}
+
+export async function recommendFertilizer(input: FertilizerInput) {
+  const { data } = await api.post<FertilizerResult>('/api/recommend-fertilizer', input);
+  return data;
+}
+
+export async function predictDisease(file: { uri: string; name: string; mimeType?: string }) {
+  const form = new FormData();
+  form.append('image', {
+    uri: file.uri,
+    name: file.name,
+    type: file.mimeType || 'image/jpeg',
+  } as unknown as Blob);
+  const { data } = await api.post<DiseaseResult>('/api/predict-disease', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
 }

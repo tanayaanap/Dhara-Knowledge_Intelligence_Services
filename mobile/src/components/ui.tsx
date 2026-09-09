@@ -284,6 +284,48 @@ export function EmptyState({
   );
 }
 
+export function ChipGroup({
+  label,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  error?: string;
+}) {
+  const { colors } = useAppTheme();
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={[styles.label, { color: colors.text }]}>{label}</Text>
+      <View style={styles.chipWrap}>
+        {options.map((opt) => {
+          const active = opt === value;
+          return (
+            <Pressable
+              key={opt}
+              onPress={() => onChange(opt)}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: active ? colors.primary : colors.elevated,
+                  borderColor: active ? colors.primary : colors.line,
+                },
+              ]}
+            >
+              <Text style={[styles.chipText, { color: active ? '#FFFFFF' : colors.text }]}>{opt}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      {error ? <Text style={[styles.helperText, { color: colors.danger }]}>{error}</Text> : null}
+    </View>
+  );
+}
+
 export function Field({
   label,
   error,
@@ -375,4 +417,8 @@ const styles = StyleSheet.create({
   inputWrap: { flexDirection: 'row', alignItems: 'center', borderRadius: radius.md, paddingHorizontal: spacing.md, minHeight: 50 },
   input: { flex: 1, fontSize: 16, paddingVertical: 0 },
   helperText: { fontSize: 12 },
+    // add to styles:
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs },
+  chip: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: radius.full ?? 999, borderWidth: 1 },
+  chipText: { fontSize: 13, fontWeight: '600' },
 });

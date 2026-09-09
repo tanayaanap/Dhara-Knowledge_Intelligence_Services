@@ -1,6 +1,5 @@
 venv/
 __pycache__/
-*.pkl
 instance/
 
 frontend/node_modules/
@@ -11,5 +10,3 @@ frontend/.env
 
 mobile/node_modules/
 leaf-dis2.webp
-
-mobile/

@@ -46,6 +46,32 @@ export const locales = {
       missionTitle: 'Our mission', missionBody: 'Make agricultural intelligence practical, accessible, and useful for every farmer.',
       footer: 'Dhara: Knowledge • Intelligence • Services',
     },
+    // inside locales.en, alongside your existing namespaces
+
+    fertilizer: {
+      label: 'Fertilizer guidance', title: 'Find the right fertilizer',
+      subtitle: 'Tell us about your soil and crop to get a fertilizer recommendation.',
+      soilType: 'Soil type', cropType: 'Crop type',
+      nitrogen: 'Nitrogen', phosphorous: 'Phosphorous', potassium: 'Potassium',
+      temperature: 'Temperature (°C)', moisture: 'Moisture (%)', rainfall: 'Rainfall (mm)',
+      ph: 'pH level', carbon: 'Organic carbon (%)',
+      submit: 'Recommend fertilizer', error: 'Could not get a recommendation. Check your inputs.',
+      resultTitle: 'Recommended', quantity: 'Suggested quantity', confidence: '{{pct}}% confidence',
+    },
+    disease: {
+      label: 'Crop health', title: 'Scan for disease',
+      subtitle: 'Take or upload a photo of the affected leaf.',
+      choosePhoto: 'Choose photo', takePhoto: 'Take photo',
+      submit: 'Check for disease', error: 'Could not analyze the image. Try a clearer photo.',
+      healthy: 'Healthy', confidence: '{{pct}}% confidence',
+    },
+    cropHub: {
+      label: 'Crop tools', title: 'Everything for your crop',
+      subtitle: 'Predict, feed, and protect — all in one place.',
+      predictTitle: 'Predict best crop', predictBody: 'Get crop suggestions from soil and climate readings',
+      fertilizerTitle: 'Fertilizer guidance', fertilizerBody: 'Get a fertilizer recommendation for your soil and crop',
+      diseaseTitle: 'Disease scan', diseaseBody: 'Photograph a leaf to check for disease',
+    },
   },
 } satisfies Record<string, Record<string, unknown>>;
 
