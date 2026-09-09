@@ -11,6 +11,7 @@ import { predictCrop, scanSoilReport } from '@/services/api';
 import { useLocale } from '@/i18n';
 import { spacing } from '@/theme/spacing';
 import { useAppTheme } from '@/theme/use-app-theme';
+import { Stack } from 'expo-router';
 
 const schema = z.object({
   nitrogen: z.coerce.number().min(0),
@@ -59,6 +60,8 @@ export default function CropScreen() {
       setMode('manual');
     }
   };
+
+  <Stack.Screen options={{ headerShown: true, title: t('crop.title') }} />
 
   return (
     <Screen>

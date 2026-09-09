@@ -789,6 +789,13 @@ Values outside the model's training data (lower trust):
 # AUTH ROUTES
 # ═══════════════════════════════════════════════════════════════════════════════
 
+@app.route("/api/ml-options")
+def ml_options():
+    return jsonify({
+        "soil_types": sorted(le_soil.classes_.tolist()),
+        "crop_types": sorted(le_crop.classes_.tolist()),
+    })
+
 @app.route("/")
 def health():
     return jsonify({"status": "DharaAI backend running"})
