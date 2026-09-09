@@ -36,16 +36,20 @@ const Chatbot = () => {
   return (
     <>
       {/* Floating Button */}
+      {/* z-[60] -- explicit, and higher than DarkModeToggle's z-index (which
+          is very likely what was silently winning this corner before, since
+          an element with NO z-index loses to one that has any explicit
+          z-index regardless of DOM order). */}
       <div
         onClick={() => setOpen(!open)}
-        className="fixed bottom-6 right-6 bg-green-500 text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl cursor-pointer shadow-lg"
+        className="fixed bottom-6 right-6 z-[60] bg-green-500 text-white w-14 h-14 rounded-full flex items-center justify-center text-2xl cursor-pointer shadow-lg"
       >
         💬
       </div>
 
       {/* Chat Box */}
       {open && (
-        <div className="fixed bottom-24 right-6 w-80 h-96 bg-gray-900 rounded-xl flex flex-col shadow-xl">
+        <div className="fixed bottom-24 right-6 z-[60] w-80 h-96 bg-gray-900 rounded-xl flex flex-col shadow-xl">
           <div className="bg-green-500 p-3 text-white font-bold rounded-t-xl">
             🌱 Dhara Assistant
           </div>

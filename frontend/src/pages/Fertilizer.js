@@ -128,13 +128,8 @@ function Fertilizer() {
                     <h3 className="text-lg font-semibold text-gray-700 mb-4 dark:text-gray-200">Current Soil Nutrient Levels</h3>
                     <div className="grid md:grid-cols-3 gap-6">
                     <div>
-<<<<<<< HEAD
                         <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🔵 Nitrogen (N) - kg/ha
-=======
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🔵 Nitrogen
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                         </label>
                         <input
                         type="number"
@@ -143,24 +138,14 @@ function Fertilizer() {
                         value={formData.nitrogen}
                         onChange={handleChange}
                         required
-<<<<<<< HEAD
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
-                        placeholder="0-100"
-=======
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         placeholder="e.g. 90"
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                         data-testid="input-nitrogen"
                         />
                     </div>
                     <div>
-<<<<<<< HEAD
                         <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🟠 Phosphorus (P) - kg/ha
-=======
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🟠 Phosphorous
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                         </label>
                         <input
                         type="number"
@@ -169,25 +154,14 @@ function Fertilizer() {
                         value={formData.phosphorous}
                         onChange={handleChange}
                         required
-<<<<<<< HEAD
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
-                        placeholder="0-100"
+                        placeholder="e.g. 42"
                         data-testid="input-phosphorus"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-200">
                         🟣 Potassium (K) - kg/ha
-=======
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                        placeholder="e.g. 42"
-                        data-testid="input-phosphorous"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        🟣 Potassium
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                         </label>
                         <input
                         type="number"
@@ -196,13 +170,8 @@ function Fertilizer() {
                         value={formData.potassium}
                         onChange={handleChange}
                         required
-<<<<<<< HEAD
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
-                        placeholder="0-100"
-=======
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
                         placeholder="e.g. 43"
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                         data-testid="input-potassium"
                         />
                     </div>
@@ -211,10 +180,10 @@ function Fertilizer() {
 
                 {/* Environmental Values */}
                 <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-700 mb-4">Environmental Conditions</h3>
+                    <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-4">Environmental Conditions</h3>
                     <div className="grid md:grid-cols-3 gap-6 mb-6">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                         🌡️ Temperature (°C)
                         </label>
                         <input
@@ -224,13 +193,13 @@ function Fertilizer() {
                         value={formData.temperature}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="e.g. 28"
                         data-testid="input-temperature"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                         💧 Moisture (%)
                         </label>
                         <input
@@ -240,13 +209,13 @@ function Fertilizer() {
                         value={formData.moisture}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="e.g. 40"
                         data-testid="input-moisture"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                         🌧️ Rainfall (mm)
                         </label>
                         <input
@@ -256,7 +225,7 @@ function Fertilizer() {
                         value={formData.rainfall}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="e.g. 100"
                         data-testid="input-rainfall"
                         />
@@ -264,7 +233,7 @@ function Fertilizer() {
                     </div>
                     <div className="grid md:grid-cols-2 gap-6">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                         ⚗️ pH
                         </label>
                         <input
@@ -274,13 +243,13 @@ function Fertilizer() {
                         value={formData.ph}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="e.g. 6.5"
                         data-testid="input-ph"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">
                         🌿 Organic Carbon
                         </label>
                         <input
@@ -290,7 +259,7 @@ function Fertilizer() {
                         value={formData.carbon}
                         onChange={handleChange}
                         required
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all dark:text-gray-300 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
                         placeholder="e.g. 0.5"
                         data-testid="input-carbon"
                         />
@@ -328,25 +297,25 @@ function Fertilizer() {
 
             {/* Result */}
             {result && (
-                <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl shadow-xl p-8 animate-fade-in" data-testid="fertilizer-result">
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl shadow-xl p-8 animate-fade-in" data-testid="fertilizer-result">
                 <div className="text-center mb-8">
                     <div className="inline-block p-6 bg-white rounded-full shadow-lg mb-4">
                     <span className="text-6xl">✨</span>
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Recommendation Ready</h2>
+                    <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Recommendation Ready</h2>
                     <div className="inline-block bg-purple-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
                     {result.confidence}% Confidence
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Recommended Fertilizer</h3>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md">
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Recommended Fertilizer</h3>
                     <p className="text-4xl font-bold text-purple-600 mb-3" data-testid="recommended-fertilizer">
                     {result.recommended_fertilizer}
                     </p>
                     <div className="mt-4">
-                    <span className="text-sm font-semibold text-gray-500">Application Rate:</span>
-                    <p className="text-2xl font-bold text-gray-800">{result.quantity}</p>
+                    <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Application Rate:</span>
+                    <p className="text-2xl font-bold text-gray-800 dark:text-gray-200">{result.quantity}</p>
                     </div>
                 </div>
                 </div>

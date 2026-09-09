@@ -409,14 +409,11 @@ function CropPrediction() {
 
           {/* ── Upload Report Tab ── */}
           {activeTab === 'upload' && (
-<<<<<<< HEAD
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 dark:bg-gray-600/80 backdrop-blur-sm">
-              <h2 className="text-lg font-bold text-gray-800 mb-1 dark:text-gray-200">Upload Soil Test Report</h2>
-=======
-            <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 dark:bg-gray-600/80 backdrop-blur-sm">
+            <h2 className="text-lg font-bold text-gray-800 mb-1 dark:text-gray-200">
+                Upload Soil Test Report
+            </h2>
 
-              <h2 className="text-lg font-bold text-gray-800 mb-1">Upload Soil Test Report</h2>
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
               <p className="text-sm text-gray-500 mb-6">
                 Upload an image or PDF of your soil test report — we'll extract the values automatically using OCR.
               </p>

@@ -76,13 +76,8 @@ function DiseasePrediction() {
                 <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
                 Disease Prediction
                 </h1>
-<<<<<<< HEAD
                 <p className="text-lg text-gray-600 dark:text-gray-300">
-                Identify crop diseases early with AI-powered analysis
-=======
-                <p className="text-lg text-gray-600">
                 Upload a leaf photo and let AI identify the disease
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                 </p>
             </div>
 
@@ -90,84 +85,7 @@ function DiseasePrediction() {
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl p-8 mb-8">
                 <form onSubmit={handleSubmit}>
                 <div className="mb-6">
-<<<<<<< HEAD
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
-                    🌱 Select Crop Type
-                    </label>
-                    <select
-                    name="crop_type"
-                    value={formData.crop_type}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all dark:bg-slate-700 dark:border-slate-600 dark:text-white"
-                    data-testid="select-crop-type"
-                    >
-                    <option value="">Choose a crop...</option>
-                    {cropTypes.map(crop => (
-                        <option key={crop} value={crop}>{crop}</option>
-                    ))}
-                    </select>
-                </div>
-
-                {/* Environmental Conditions */}
-                <div className="grid md:grid-cols-2 gap-6 mb-6">
-                    <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
-                        🌡️ Temperature (°C)
-                    </label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        name="temperature"
-                        value={formData.temperature}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Enter temperature"
-                        data-testid="input-temperature"
-                    />
-                    </div>
-                    <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2 dark:text-gray-100">
-                        💧 Humidity (%)
-                    </label>
-                    <input
-                        type="number"
-                        step="0.1"
-                        name="humidity"
-                        value={formData.humidity}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Enter humidity"
-                        data-testid="input-humidity"
-                    />
-                    </div>
-                </div>
-
-                {/* Symptoms Selection */}
-                <div className="mb-8">
-                    <label className="block text-sm font-semibold text-gray-700 mb-3 dark:text-gray-300">
-                    🩺 Select Symptoms (choose all that apply)
-                    </label>
-                    <div className="grid md:grid-cols-3 gap-3">
-                    {availableSymptoms.map(symptom => (
-                        <button
-                        key={symptom}
-                        type="button"
-                        onClick={() => toggleSymptom(symptom)}
-                        className={`px-4 py-3 rounded-lg border-2 font-medium transition-all ${
-                            formData.symptoms.includes(symptom)
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-white dark:bg-slate-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-slate-600'
-                        }`}
-                        data-testid={`symptom-${symptom.toLowerCase().replace(/s/g, '-')}`}
-                        >
-                        {symptom}
-                        </button>
-                    ))}
-=======
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-100 mb-3">
                     🌿 Upload Leaf Image
                     </label>
 
@@ -175,7 +93,7 @@ function DiseasePrediction() {
                         onDrop={handleDrop}
                         onDragOver={(e) => e.preventDefault()}
                         onClick={() => fileInputRef.current?.click()}
-                        className="border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-xl p-8 text-center cursor-pointer transition-all bg-gray-50 hover:bg-blue-50"
+                        className="border-2 border-dashed border-gray-300 dark:border-slate-600 hover:border-blue-400 rounded-xl p-8 text-center cursor-pointer transition-all bg-gray-50 dark:bg-slate-700/50 hover:bg-blue-50 dark:hover:bg-slate-700"
                         data-testid="disease-upload-zone"
                     >
                         <input
@@ -196,15 +114,14 @@ function DiseasePrediction() {
                         ) : (
                             <>
                                 <div className="text-4xl mb-3">🗂️</div>
-                                <p className="text-gray-600 font-medium mb-1">Click to upload or drag & drop</p>
-                                <p className="text-xs text-gray-400">PNG, JPG, or WEBP</p>
+                                <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">Click to upload or drag &amp; drop</p>
+                                <p className="text-xs text-gray-400 dark:text-gray-400">PNG, JPG, or WEBP</p>
                             </>
                         )}
->>>>>>> 07bb404a0424e41b322f7a90757da7a9398a5c3d
                     </div>
 
                     {selectedFile && (
-                        <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
+                        <div className="flex items-center justify-between mt-3 text-sm text-gray-600 dark:text-gray-300">
                             <span>{selectedFile.name}</span>
                             <button
                                 type="button"
@@ -247,22 +164,22 @@ function DiseasePrediction() {
 
             {/* Result */}
             {result && (
-                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-2xl shadow-xl p-8 animate-fade-in" data-testid="disease-result">
+                <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl shadow-xl p-8 animate-fade-in" data-testid="disease-result">
                 <div className="text-center mb-8">
                     <div className="inline-block p-6 bg-white rounded-full shadow-lg mb-4">
                     <span className="text-6xl">{result.disease === 'Healthy' ? '✅' : '⚠️'}</span>
                     </div>
-                    <h2 className="text-3xl font-bold text-gray-800 mb-2">Diagnosis Result</h2>
+                    <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">Diagnosis Result</h2>
                     <div className="inline-block bg-blue-500 text-white px-6 py-2 rounded-full text-sm font-semibold">
                     {result.confidence}% Confidence
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-md">
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Plant</h3>
-                    <p className="text-xl font-semibold text-gray-700 mb-4" data-testid="detected-plant">{result.plant}</p>
+                <div className="bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md">
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Plant</h3>
+                    <p className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-4" data-testid="detected-plant">{result.plant}</p>
 
-                    <h3 className="text-sm font-semibold text-gray-500 mb-2">Detected Condition</h3>
+                    <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Detected Condition</h3>
                     <p className="text-4xl font-bold text-blue-600" data-testid="detected-disease">{result.disease}</p>
                 </div>
                 </div>

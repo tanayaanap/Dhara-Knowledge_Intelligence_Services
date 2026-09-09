@@ -28,7 +28,13 @@ const DarkModeToggle = () => {
     return (
         <button
         onClick={toggleDarkMode}
-        className="fixed bottom-8 right-8 z-50 p-3 rounded-full bg-gradient-to-br from-dhara-green to-dhara-emerald text-white shadow-lg hover:shadow-xl transform hover:scale-110 transition-all"
+        // Moved from bottom-8/right-8 to top-20/right-6 -- it was sitting
+        // almost exactly on top of Chatbot's bottom-6/right-6 button (only
+        // 8px apart) and, with an explicit z-50, was always winning that
+        // corner regardless of DOM order. top-20 clears the sticky nav's
+        // height (h-16 = 64px) with a bit of margin, so this button now
+        // sits just below it instead of overlapping the chat bubble.
+        className="fixed top-20 right-6 z-40 p-3 rounded-full bg-gradient-to-br from-dhara-green to-dhara-emerald text-white shadow-lg hover:shadow-xl transform hover:scale-110 transition-all"
         title="Toggle dark mode"
         >
         {isDark ? (
