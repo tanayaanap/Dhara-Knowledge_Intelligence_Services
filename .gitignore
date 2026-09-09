@@ -8,3 +8,8 @@ frontend/node_modules/
 *.env
 backend/.env
 frontend/.env
+
+mobile/node_modules/
+leaf-dis2.webp
+
+mobile/
