@@ -1,0 +1,63 @@
+{
+  "nav": {
+    "brand": "DharaAI",
+    "dashboard": "डॅशबोर्ड",
+    "cropPrediction": "पीक सल्ला",
+    "diseasePrediction": "रोग ओळख",
+    "fertilizer": "खत",
+    "about": "आमच्याबद्दल",
+    "login": "लॉगिन"
+  },
+  "dashboard": {
+    "titlePart1": "आपले स्वागत आहे",
+    "greeting": "नमस्कार {{name}}! 🌱 शेतकऱ्यांना स्मार्ट आणि शाश्वत शेतीसाठी कृत्रिम बुद्धिमत्तेने सक्षम करणे",
+    "subtitlePlain": "शेतकऱ्यांना स्मार्ट आणि शाश्वत शेतीसाठी कृत्रिम बुद्धिमत्तेने सक्षम करणे",
+    "statsTotal": "एकूण अंदाज",
+    "statsCrop": "पीक विश्लेषण",
+    "statsDisease": "रोग ओळख",
+    "statsFertilizer": "खत सल्ला",
+    "featureCropTitle": "पीक सल्ला",
+    "featureCropDesc": "तुमच्या मातीच्या आणि हवामानाच्या आधारे योग्य पिकासाठी एआय-आधारित सल्ला मिळवा.",
+    "featureDiseaseTitle": "रोग ओळख",
+    "featureDiseaseDesc": "प्रगत एआय तंत्रज्ञानाने पिकांच्या रोगांची वेळीच ओळख करून तुमचे पीक सुरक्षित ठेवा.",
+    "featureFertilizerTitle": "खत सल्ला",
+    "featureFertilizerDesc": "चांगल्या उत्पादनासाठी वैयक्तिक खत सल्ल्याने तुमचा खत वापर सुधारा.",
+    "getStarted": "सुरू करा",
+    "whyChoose": "AgriAI का निवडावे?",
+    "benefit1Title": "अचूक अंदाज",
+    "benefit1Desc": "अचूक शेती निर्णयांसाठी एआय-आधारित विश्लेषण",
+    "benefit2Title": "त्वरित निकाल",
+    "benefit2Desc": "तुमच्या शेतासाठी त्वरित सल्ला मिळवा",
+    "benefit3Title": "वाढलेले उत्पादन",
+    "benefit3Desc": "जास्तीत जास्त उत्पादकतेसाठी संसाधनांचा योग्य वापर करा"
+  },
+  "register": {
+    "title": "DHARA मध्ये सामील व्हा",
+    "subtitle": "तुमचे शेतकरी खाते तयार करा",
+    "nameLabel": "नाव",
+    "namePlaceholder": "तुमचे पूर्ण नाव",
+    "emailLabel": "ईमेल",
+    "emailPlaceholder": "your@email.com",
+    "passwordLabel": "पासवर्ड",
+    "locationLabel": "ठिकाण",
+    "locationPlaceholder": "गाव/शहर",
+    "landSizeLabel": "जमिनीचे क्षेत्रफळ",
+    "landSizePlaceholder": "उदा. २ एकर",
+    "submitLoading": "खाते तयार होत आहे...",
+    "submitButton": "खाते तयार करा",
+    "haveAccount": "आधीच खाते आहे?",
+    "signIn": "साइन इन करा"
+  },
+  "chatbot": {
+    "title": "धरा सहाय्यक",
+    "placeholder": "पिकांबद्दल विचारा...",
+    "send": "पाठवा",
+    "typing": "टाइप करत आहे...",
+    "you": "तुम्ही",
+    "bot": "धरा",
+    "errorConnecting": "सर्व्हरशी कनेक्ट करताना त्रुटी"
+  },
+  "common": {
+    "language": "भाषा"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "nav": {
+    "brand": "DharaAI",
+    "dashboard": "डैशबोर्ड",
+    "cropPrediction": "फसल सुझाव",
+    "diseasePrediction": "रोग पहचान",
+    "fertilizer": "उर्वरक",
+    "about": "हमारे बारे में",
+    "login": "लॉगिन"
+  },
+  "dashboard": {
+    "titlePart1": "आपका स्वागत है",
+    "greeting": "नमस्ते {{name}}! 🌱 किसानों को स्मार्ट और टिकाऊ खेती के लिए कृत्रिम बुद्धिमत्ता से सशक्त बनाना",
+    "subtitlePlain": "किसानों को स्मार्ट और टिकाऊ खेती के लिए कृत्रिम बुद्धिमत्ता से सशक्त बनाना",
+    "statsTotal": "कुल सुझाव",
+    "statsCrop": "फसल विश्लेषण",
+    "statsDisease": "रोग पहचान",
+    "statsFertilizer": "उर्वरक सुझाव",
+    "featureCropTitle": "फसल सुझाव",
+    "featureCropDesc": "अपनी मिट्टी और जलवायु के अनुसार सबसे उपयुक्त फसल के लिए एआई-आधारित सुझाव पाएं।",
+    "featureDiseaseTitle": "रोग पहचान",
+    "featureDiseaseDesc": "उन्नत एआई तकनीक से फसल रोगों की समय पर पहचान कर अपनी उपज को सुरक्षित रखें।",
+    "featureFertilizerTitle": "उर्वरक सुझाव",
+    "featureFertilizerDesc": "बेहतर उपज के लिए व्यक्तिगत उर्वरक सुझावों से अपने उर्वरक उपयोग को बेहतर बनाएं।",
+    "getStarted": "शुरू करें",
+    "whyChoose": "AgriAI क्यों चुनें?",
+    "benefit1Title": "सटीक सुझाव",
+    "benefit1Desc": "सटीक कृषि निर्णयों के लिए एआई-आधारित विश्लेषण",
+    "benefit2Title": "तुरंत परिणाम",
+    "benefit2Desc": "अपने खेत के लिए तुरंत सुझाव पाएं",
+    "benefit3Title": "बढ़ी हुई उपज",
+    "benefit3Desc": "अधिकतम उत्पादकता के लिए संसाधनों का सही उपयोग करें"
+  },
+  "register": {
+    "title": "DHARA से जुड़ें",
+    "subtitle": "अपना किसान खाता बनाएं",
+    "nameLabel": "नाम",
+    "namePlaceholder": "आपका पूरा नाम",
+    "emailLabel": "ईमेल",
+    "emailPlaceholder": "your@email.com",
+    "passwordLabel": "पासवर्ड",
+    "locationLabel": "स्थान",
+    "locationPlaceholder": "गांव/शहर",
+    "landSizeLabel": "भूमि का आकार",
+    "landSizePlaceholder": "जैसे 2 एकड़",
+    "submitLoading": "खाता बनाया जा रहा है...",
+    "submitButton": "खाता बनाएं",
+    "haveAccount": "पहले से खाता है?",
+    "signIn": "साइन इन करें"
+  },
+  "chatbot": {
+    "title": "धरा सहायक",
+    "placeholder": "फसलों के बारे में पूछें...",
+    "send": "भेजें",
+    "typing": "टाइप कर रहे हैं...",
+    "you": "आप",
+    "bot": "धरा",
+    "errorConnecting": "सर्वर से कनेक्ट करने में त्रुटि"
+  },
+  "common": {
+    "language": "भाषा"
+  }
+}

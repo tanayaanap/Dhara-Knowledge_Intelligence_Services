@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import './App.css';
+import './i18n';
 import Dashboard from './pages/Dashboard';
 import CropPrediction from './pages/CropPrediction';
 import DiseasePrediction from './pages/DiseasePrediction';
@@ -11,19 +13,22 @@ import Register from './pages/Register';
 import Profile from './pages/Profile';
 import AnimatedBackground from './components/AnimatedBackground';
 import DarkModeToggle from './components/DarkModeToggle';
+import LanguageSwitcher from './components/LanguageSwitcher';
 import Chatbot from './pages/Chatbot';
 import farmBg from "./assets/farm.jpg";
-const NAV_LINKS = [
-  { to: '/', label: 'Dashboard', testId: 'nav-dashboard' },
-  { to: '/crop-prediction', label: 'Crop Prediction', testId: 'nav-crop-prediction' },
-  { to: '/disease-prediction', label: 'Disease Prediction', testId: 'nav-disease-prediction' },
-  { to: '/fertilizer', label: 'Fertilizer', testId: 'nav-fertilizer' },
-  { to: '/about', label: 'About Us', testId: 'nav-about' },
-];
 
 function Navigation({ user, isAuthenticated }) {
+  const { t } = useTranslation();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const NAV_LINKS = [
+    { to: '/', label: t('nav.dashboard'), testId: 'nav-dashboard' },
+    { to: '/crop-prediction', label: t('nav.cropPrediction'), testId: 'nav-crop-prediction' },
+    { to: '/disease-prediction', label: t('nav.diseasePrediction'), testId: 'nav-disease-prediction' },
+    { to: '/fertilizer', label: t('nav.fertilizer'), testId: 'nav-fertilizer' },
+    { to: '/about', label: t('nav.about'), testId: 'nav-about' },
+  ];
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -49,7 +54,7 @@ function Navigation({ user, isAuthenticated }) {
             <div className="w-9 h-9 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
               <span className="text-lg">🌾</span>
             </div>
-            <span className="text-xl font-bold text-gray-800 tracking-tight dark:text-gray-50">DharaAI</span>
+            <span className="text-xl font-bold text-gray-800 tracking-tight dark:text-gray-50">{t('nav.brand')}</span>
           </Link>
 
           {/* Desktop Nav Links */}
@@ -70,8 +75,9 @@ function Navigation({ user, isAuthenticated }) {
             ))}
           </div>
 
-          {/* Desktop Right: User or Login */}
-          <div className="hidden md:flex items-center">
+          {/* Desktop Right: Language + User or Login */}
+          <div className="hidden md:flex items-center gap-3">
+            <LanguageSwitcher />
             {isAuthenticated ? (
               <Link
                 to="/profile"
@@ -92,7 +98,7 @@ function Navigation({ user, isAuthenticated }) {
                 to="/login"
                 className="px-4 py-2 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-all shadow-sm hover:shadow-md"
               >
-                Login
+                {t('nav.login')}
               </Link>
             )}
           </div>
@@ -132,6 +138,9 @@ function Navigation({ user, isAuthenticated }) {
                 {label}
               </Link>
             ))}
+            <div className="pt-1 border-t border-gray-100 mt-1 flex items-center justify-between px-4">
+              <LanguageSwitcher />
+            </div>
             <div className="pt-1 border-t border-gray-100 mt-1">
               {isAuthenticated ? (
                 <Link
@@ -153,7 +162,7 @@ function Navigation({ user, isAuthenticated }) {
                   to="/login"
                   className="flex items-center justify-center px-4 py-2.5 rounded-xl bg-green-500 text-white text-sm font-medium hover:bg-green-600 transition-all"
                 >
-                  Login
+                  {t('nav.login')}
                 </Link>
               )}
             </div>

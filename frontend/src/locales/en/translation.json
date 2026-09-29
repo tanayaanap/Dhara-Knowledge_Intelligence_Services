@@ -1,0 +1,63 @@
+{
+  "nav": {
+    "brand": "DharaAI",
+    "dashboard": "Dashboard",
+    "cropPrediction": "Crop Prediction",
+    "diseasePrediction": "Disease Prediction",
+    "fertilizer": "Fertilizer",
+    "about": "About Us",
+    "login": "Login"
+  },
+  "dashboard": {
+    "titlePart1": "Welcome to",
+    "greeting": "Hi {{name}}! 🌱 Empowering farmers with artificial intelligence for smarter, sustainable agriculture",
+    "subtitlePlain": "Empowering farmers with artificial intelligence for smarter, sustainable agriculture",
+    "statsTotal": "Total Predictions",
+    "statsCrop": "Crop Analysis",
+    "statsDisease": "Disease Detected",
+    "statsFertilizer": "Fertilizer Tips",
+    "featureCropTitle": "Crop Prediction",
+    "featureCropDesc": "Get AI-powered recommendations for the best crops to grow based on your soil and climate conditions.",
+    "featureDiseaseTitle": "Disease Prediction",
+    "featureDiseaseDesc": "Early detection of crop diseases using advanced AI algorithms to protect your harvest.",
+    "featureFertilizerTitle": "Fertilizer Recommendation",
+    "featureFertilizerDesc": "Optimize your fertilizer usage with personalized recommendations for better yields.",
+    "getStarted": "Get Started",
+    "whyChoose": "Why Choose AgriAI?",
+    "benefit1Title": "Accurate Predictions",
+    "benefit1Desc": "AI-powered analysis for precise farming decisions",
+    "benefit2Title": "Real-time Results",
+    "benefit2Desc": "Get instant recommendations for your farm",
+    "benefit3Title": "Increased Yield",
+    "benefit3Desc": "Optimize resources for maximum productivity"
+  },
+  "register": {
+    "title": "Join DHARA",
+    "subtitle": "Create your farmer account",
+    "nameLabel": "Name",
+    "namePlaceholder": "Your full name",
+    "emailLabel": "Email",
+    "emailPlaceholder": "your@email.com",
+    "passwordLabel": "Password",
+    "locationLabel": "Location",
+    "locationPlaceholder": "Village/city",
+    "landSizeLabel": "Land Size",
+    "landSizePlaceholder": "e.g. 2 acres",
+    "submitLoading": "Creating account...",
+    "submitButton": "Create Account",
+    "haveAccount": "Already have an account?",
+    "signIn": "Sign in"
+  },
+  "chatbot": {
+    "title": "Dhara Assistant",
+    "placeholder": "Ask about crops...",
+    "send": "Send",
+    "typing": "Typing...",
+    "you": "You",
+    "bot": "Dhara",
+    "errorConnecting": "Error connecting to server"
+  },
+  "common": {
+    "language": "Language"
+  }
+}
