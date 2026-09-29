@@ -63,3 +63,57 @@ class PredictionHistory(db.Model):
             "top_crop":    self.top_crop,
             "top_prob":    self.top_prob,
         }
+
+
+class DiseaseHistory(db.Model):
+    """
+    One row per completed disease-prediction call. user_id is nullable --
+    unlike PredictionHistory, this logs every successful classification
+    regardless of whether the person is logged in, so /api/stats reflects
+    real total usage rather than only logged-in usage. (PredictionHistory
+    itself still only logs for logged-in users -- see the note where it's
+    written in app.py if you want that changed too; it wasn't touched here
+    to avoid a schema migration on your existing dhara.db.)
+    """
+    __tablename__ = "disease_history"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    timestamp  = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    plant      = db.Column(db.String(80),  default="")
+    disease    = db.Column(db.String(120), default="")
+    confidence = db.Column(db.Float, default=0)
+
+    def to_dict(self):
+        return {
+            "id":         self.id,
+            "timestamp":  self.timestamp.isoformat() if self.timestamp else "",
+            "plant":      self.plant,
+            "disease":    self.disease,
+            "confidence": self.confidence,
+        }
+
+
+class FertilizerHistory(db.Model):
+    """One row per completed fertilizer recommendation. user_id nullable -- see DiseaseHistory docstring."""
+    __tablename__ = "fertilizer_history"
+
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
+    timestamp  = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+    crop_type       = db.Column(db.String(50),  default="")
+    soil_type       = db.Column(db.String(50),  default="")
+    fertilizer      = db.Column(db.String(80),  default="")
+    confidence      = db.Column(db.Float, default=0)
+
+    def to_dict(self):
+        return {
+            "id":         self.id,
+            "timestamp":  self.timestamp.isoformat() if self.timestamp else "",
+            "crop_type":  self.crop_type,
+            "soil_type":  self.soil_type,
+            "fertilizer": self.fertilizer,
+            "confidence": self.confidence,
+        }

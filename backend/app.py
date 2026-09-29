@@ -14,8 +14,10 @@ Features:
 from flask import Flask, request, session, jsonify, make_response
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
-from models import db, User, PredictionHistory
+from models import db, User, PredictionHistory, DiseaseHistory, FertilizerHistory
 from google import genai
+from google.genai import types
+from functools import lru_cache
 import numpy as np
 import joblib
 import os
@@ -30,8 +32,12 @@ import torchvision.transforms as transforms
 from PIL import Image as PILImage
 from model import load_model, CLASS_NAMES
 from dotenv import load_dotenv
+from chatbot import match_intent, DEFAULT_RESPONSE
+from fast_helpers import (timed, start_climate_fetch, ocr_image, call_with_timeout,
+                            climate_or_default, safe_gemini, gemini_status, reset_gemini_breaker)
 
 load_dotenv()
+os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # Tesseract is often faster single-threaded
 
 # ── optional OCR deps ────────────────────────────────────────────────────────
 try:
@@ -44,9 +50,30 @@ except ImportError:
 
 # ── Gemini client ────────────────────────────────────────────────────────────
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Put GEMINI_MODEL=<other model> in .env to switch models (each model has its own free quota)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+# The "why this crop" paragraph has a built-in offline version. Gemini for it is OFF by
+# default so every prediction is instant and free-tier quota is saved for the chatbot.
+# Set USE_GEMINI_EXPLANATION=1 in .env to turn it on.
+USE_GEMINI_EXPLANATION = os.getenv("USE_GEMINI_EXPLANATION", "0") == "1"
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY environment variable is not set")
-gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+gemini_client = genai.Client(
+    api_key=GEMINI_API_KEY,
+    http_options=types.HttpOptions(timeout=30_000),   # ms; allow Gemini enough time to respond
+)
+
+def _gemini_text(prompt: str) -> str:
+    """Call Gemini and return plain text. Raises on failure so chat can fall back."""
+    resp = gemini_client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+    )
+    reply = (getattr(resp, "text", None) or "").strip()
+    if not reply:
+        raise RuntimeError("Gemini returned an empty response")
+    return reply
+
 
 # ── App setup ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -389,7 +416,7 @@ OCR text:
 
     try:
         resp = gemini_client.interactions.create(
-            model="gemini-3.6-flash", input=prompt
+            model=GEMINI_MODEL, input=prompt
         )
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", resp.output_text.strip(), flags=re.MULTILINE)
         data = json.loads(cleaned)
@@ -489,7 +516,8 @@ def predict_crop(N, P, K, ph, temperature, humidity, rainfall, top_n=4):
     """Run XGBoost and return top-N crops with probabilities."""
     try:
         features = np.array([[N, P, K, temperature, humidity, ph, rainfall]])
-        probs    = ml_model.predict_proba(features)[0]
+        with timed("xgboost"):
+            probs = ml_model.predict_proba(features)[0]
         top_idx  = np.argsort(probs)[-top_n:][::-1]
         return [
             {"crop": str(le.inverse_transform([i])[0]),
@@ -752,13 +780,11 @@ Factors (your soil value vs. typical range for this crop):
 Values outside the model's training data (lower trust):
 {oor_lines}
 """
-        try:
-            resp = gemini_client.interactions.create(
-                model="gemini-3.6-flash", input=prompt
-            )
-            narrative = resp.output_text.strip()
-        except Exception as e:
-            print("Gemini explanation generation failed:", e)
+        if USE_GEMINI_EXPLANATION:
+            try:
+                narrative = safe_gemini(_gemini_text, 6, prompt).strip()
+            except Exception as e:
+                print("Gemini explanation skipped:", e)
 
     if not narrative:
         # Deterministic fallback -- no external dependency, always available.
@@ -809,7 +835,10 @@ def register():
         return jsonify({"success": False, "error": "Email required"}), 400
     if User.query.filter_by(email=email).first():
         return jsonify({"success": False, "error": "Email already registered"}), 409
-    u = User(name=data.get("name", ""), email=email)
+    u = User(
+        name=data.get("name", ""), email=email,
+        location=data.get("location", ""), land_size=data.get("land_size", ""),
+    )
     u.set_password(data.get("password", ""))
     db.session.add(u)
     db.session.commit()
@@ -907,7 +936,8 @@ def predict():
             # Allow fallback from request body if profile has no location
             if not location:
                 location = (data.get("location") or "").strip()
-            climate = fetch_climate_data(location)
+            with timed("climate"):
+                climate = climate_or_default(start_climate_fetch(location, fetch_climate_data))
             temperature     = climate["temperature"]
             humidity        = climate["humidity"]
             rainfall        = climate["rainfall"]
@@ -975,6 +1005,17 @@ def ocr_scan():
 
     try:
         # ── Step 1: Extract text ──────────────────────────────────────────────
+        # Read location first and start the weather fetch in the background,
+        # so it runs WHILE Tesseract is working (it doesn't depend on the OCR text).
+        location = ""
+        if "user_id" in session:
+            u = User.query.get(session["user_id"])
+            if u:
+                location = (u.location or "").strip()
+        if not location:
+            location = (request.form.get("location") or "").strip()
+        climate_future = start_climate_fetch(location, fetch_climate_data)
+
         raw_text = ""
         if filename.endswith(".pdf"):
             pdf_bytes = file.read()
@@ -987,12 +1028,12 @@ def ocr_scan():
                 else:
                     # 300 DPI + grayscale is the standard Tesseract accuracy
                     # sweet spot (higher than the default 72 DPI render).
-                    pix = page.get_pixmap(dpi=300)
-                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples).convert("L")
-                    raw_text += pytesseract.image_to_string(img, config="--oem 3 --psm 6")
+                    pix = page.get_pixmap(dpi=200)   # was 300; 200 is plenty and ~2x faster
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    raw_text += ocr_image(img, pytesseract)
         else:
-            img      = Image.open(file.stream).convert("L")
-            raw_text = pytesseract.image_to_string(img, config="--oem 3 --psm 6")
+            img      = Image.open(file.stream)
+            raw_text = ocr_image(img, pytesseract)
 
         # ── Step 2: Parse SHC fields ─────────────────────────────────────────
         extracted = parse_soil_report(raw_text)
@@ -1009,7 +1050,12 @@ def ocr_scan():
         REQUIRED_CORE_FIELDS = ["nitrogen", "phosphorus", "potassium", "ph"]
         gemini_filled = []
         if any(f not in extracted for f in REQUIRED_CORE_FIELDS):
-            gemini_fields = gemini_extract_fields(raw_text)
+            with timed("gemini fallback"):
+                try:
+                    gemini_fields = safe_gemini(gemini_extract_fields, 8, raw_text)
+                except Exception as e:
+                    print("[OCR] Gemini fallback skipped:", repr(e))
+                    gemini_fields = {}
             for k, v in gemini_fields.items():
                 if k not in extracted:
                     extracted[k] = v
@@ -1022,17 +1068,8 @@ def ocr_scan():
         # The frontend FormData only contains the file — it never sends a
         # location field — so request.form.get("location") is always empty.
         # We therefore always read from the logged-in user's profile first.
-        location = ""
-        if "user_id" in session:
-            u = User.query.get(session["user_id"])
-            if u:
-                location = (u.location or "").strip()
-
-        # Fallback: allow an optional JSON body with location key
-        if not location:
-            location = (request.form.get("location") or "").strip()
-
-        climate = fetch_climate_data(location)
+        with timed("climate wait (after OCR)"):
+            climate = climate_or_default(climate_future)
         print(f"[OCR] Location used for climate: '{location}' → {climate}")
 
         # ── Step 3.5: Normalize units (kg/ha for N/P/K, ppm for micronutrients) ──
@@ -1148,36 +1185,157 @@ def export_history():
 
 @app.route("/api/stats")
 def stats():
-    total = PredictionHistory.query.count()
-    crop  = PredictionHistory.query.filter_by(source="manual").count()
-    ocr   = PredictionHistory.query.filter_by(source="ocr").count()
+    # Scoped to the logged-in user -- these are THEIR stats, not site-wide
+    # totals. "users" (registered farmers) stays global since that's a
+    # legitimate site-wide number, not a per-user one.
+    uid = session.get("user_id")
     users = User.query.count()
-    return jsonify({"total": total, "crop": crop, "disease": 0,
-                    "fertilizer": 0, "ocr": ocr, "users": users})
+
+    if not uid:
+        return jsonify({"total": 0, "crop": 0, "disease": 0, "fertilizer": 0,
+                        "ocr": 0, "users": users, "authenticated": False})
+
+    crop_manual = PredictionHistory.query.filter_by(user_id=uid, source="manual").count()
+    ocr         = PredictionHistory.query.filter_by(user_id=uid, source="ocr").count()
+    crop        = crop_manual + ocr
+    disease     = DiseaseHistory.query.filter_by(user_id=uid).count()
+    fertilizer  = FertilizerHistory.query.filter_by(user_id=uid).count()
+    total = crop + disease + fertilizer
+    return jsonify({"total": total, "crop": crop, "disease": disease,
+                    "fertilizer": fertilizer, "ocr": ocr, "users": users,
+                    "authenticated": True})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# CHAT (Gemini)
+# CHAT (Gemini) — multilingual + fast/local-first
 # ═══════════════════════════════════════════════════════════════════════════════
+
+# True = answer known English questions from the offline knowledge base first
+# (instant). Hindi/Marathi questions go to Gemini so the response is returned in
+# the selected language instead of accidentally returning an English local reply.
+# ══════════════════════════════════════════════════════════════════════════════
+# PASTE THIS into app.py, REPLACING everything from the line
+#     CHAT_LOCAL_FIRST = True
+# down to (and including) the end of the chat() function
+# (the line:   }), 200      followed by the FERTILIZER_QUANTITY_GUIDE block below it).
+#
+# ALSO change the fast_helpers import at the top of app.py to:
+#   from fast_helpers import (timed, start_climate_fetch, ocr_image, call_with_timeout,
+#                             climate_or_default, safe_gemini, gemini_status, reset_gemini_breaker)
+# ══════════════════════════════════════════════════════════════════════════════
+
+CHAT_LOCAL_FIRST = False    # Always try Gemini first; encoded KB is the fallback
+GEMINI_CHAT_TIMEOUT = 25    # seconds, hard cap (was 8 -- too tight for a first/cold call)
+
+LANGUAGE_NAMES = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
+
+# Offline replies for Hindi / Marathi, so greetings work and a Gemini outage never
+# shows an English menu to a Hindi/Marathi user.
+OFFLINE_I18N = {
+    "hi": {
+        "greeting_kw": ["नमस्ते", "नमस्कार", "हैलो", "हेलो"],
+        "farewell_kw": ["धन्यवाद", "शुक्रिया", "अलविदा", "बाय"],
+        "greeting": "नमस्ते! 👋 मैं DHARA सहायक हूँ। मैं फसल सुझाव, मिट्टी की सेहत, उर्वरक और मौसम से जुड़ी सलाह में आपकी मदद कर सकता हूँ। आप क्या जानना चाहेंगे?",
+        "farewell": "DHARA सहायक का उपयोग करने के लिए धन्यवाद! 🌱 खुशहाल खेती! कभी भी दोबारा आइए। 👋",
+        "unavailable": "क्षमा करें, AI सहायक अभी उपलब्ध नहीं है। कृपया कुछ देर बाद फिर कोशिश करें, या अंग्रेज़ी में पूछें — उसके जवाब तुरंत मिलते हैं।",
+    },
+    "mr": {
+        "greeting_kw": ["नमस्कार", "नमस्ते", "हॅलो", "हेलो"],
+        "farewell_kw": ["धन्यवाद", "आभार", "बाय", "निरोप"],
+        "greeting": "नमस्कार! 👋 मी DHARA सहाय्यक आहे. मी पीक शिफारस, मातीचे आरोग्य, खते आणि हवामानाच्या सल्ल्यात तुम्हाला मदत करू शकतो. तुम्हाला काय जाणून घ्यायचे आहे?",
+        "farewell": "DHARA सहाय्यक वापरल्याबद्दल धन्यवाद! 🌱 शेतीसाठी शुभेच्छा! केव्हाही पुन्हा या. 👋",
+        "unavailable": "क्षमस्व, AI सहाय्यक सध्या उपलब्ध नाही. कृपया थोड्या वेळाने पुन्हा प्रयत्न करा, किंवा इंग्रजीत विचारा — त्याची उत्तरे लगेच मिळतात.",
+    },
+}
+
+
+@lru_cache(maxsize=256)
+def _ask_gemini(language_code: str, msg: str) -> str:
+    """Cached Gemini chat (language-aware; exceptions are never cached)."""
+    lang_name = LANGUAGE_NAMES.get(language_code, "English")
+    prompt = (
+        "You are DHARA, an expert AI assistant for Indian farmers. "
+        "Answer questions about crops, soil health, fertilizers, pests, "
+        "irrigation, and sustainable farming. Be concise (under 120 words) and practical. "
+        "When relevant, refer to ICAR/SHC recommendations.\n\n"
+        f"Respond in {lang_name}, regardless of what language the user wrote in. "
+        f"Use simple, everyday {lang_name} a farmer would understand -- avoid "
+        "overly formal or literary phrasing.\n\n"
+        f"User: {msg}"
+    )
+    resp = gemini_client.interactions.create(model=GEMINI_MODEL, input=prompt)
+    return resp.output_text
+
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
     try:
-        msg = (request.get_json() or {}).get("message", "")
-        prompt = (
-            "You are DHARA, an expert AI assistant for Indian farmers. "
-            "Answer questions about crops, soil health, fertilizers, pests, "
-            "irrigation, and sustainable farming. Be concise and practical. "
-            "When relevant, refer to ICAR/SHC recommendations.\n\n"
-            f"User: {msg}"
-        )
-        resp = gemini_client.interactions.create(
-            model="gemini-3.6-flash", input=prompt
-        )
-        return jsonify({"reply": resp.output_text})
+        body = request.get_json() or {}
+        msg = ((body.get("message", "") or "").strip())
+        # i18n.language can be "en-US", "hi-IN" etc. -- keep only the base code
+        lang_code = str(body.get("language", "en")).lower().replace("_", "-").split("-")[0]
+        if lang_code not in LANGUAGE_NAMES:
+            lang_code = "en"
+
+        if not msg:
+            return jsonify({"reply": "Please type a question.", "source": "local"})
+
+        # Always calculate the encoded answer first, but DO NOT return it yet.
+        # Gemini gets the first chance to answer every question.
+        intent, local_reply = match_intent(msg)
+
+        # ── Gemini FIRST (hard time cap + circuit breaker) ───────────────────
+        try:
+            with timed("gemini chat"):
+                reply = safe_gemini(_ask_gemini, GEMINI_CHAT_TIMEOUT, lang_code, msg)
+            return jsonify({"reply": reply, "source": "gemini", "language": lang_code})
+        except Exception as e:
+            print(f"[CHAT] Gemini failed: {type(e).__name__}: {e}", flush=True)
+
+            # Gemini unavailable? Now use the encoded chatbot.py response.
+            if lang_code == "en":
+                fallback = local_reply or DEFAULT_RESPONSE
+            else:
+                # chatbot.py contains English KB responses, so for Hindi/Marathi
+                # use the existing localized offline greeting/farewell where applicable.
+                off = OFFLINE_I18N[lang_code]
+                low = msg.lower()
+                if len(msg.split()) <= 6 and any(k in low for k in off["greeting_kw"]):
+                    fallback = off["greeting"]
+                elif len(msg.split()) <= 6 and any(k in low for k in off["farewell_kw"]):
+                    fallback = off["farewell"]
+                elif local_reply:
+                    fallback = local_reply
+                else:
+                    fallback = off["unavailable"]
+
+            return jsonify({"reply": fallback, "source": "fallback", "language": lang_code})
+
     except Exception as e:
-        print("Gemini error:", e)
-        return jsonify({"reply": f"Sorry, the assistant is temporarily unavailable. ({e})"})
+        print(f"[CHAT] Request failed: {type(e).__name__}: {e}", flush=True)
+        return jsonify({"reply": "Sorry, the assistant is temporarily unavailable.",
+                        "source": "fallback"}), 200
+
+
+@app.route("/api/chat-status")
+def chat_status():
+    """
+    Open in the browser to see WHY the chatbot falls back:
+      http://localhost:5000/api/chat-status            -> breaker state + last Gemini error
+      http://localhost:5000/api/chat-status?test=1     -> makes one live Gemini call and shows result/error
+      http://localhost:5000/api/chat-status?reset=1    -> clears the "Gemini disabled" cooldown
+    """
+    if request.args.get("reset"):
+        reset_gemini_breaker()
+    info = gemini_status()
+    info["model"] = GEMINI_MODEL
+    if request.args.get("test"):
+        try:
+            info["test"] = "OK"
+            info["test_reply"] = call_with_timeout(_gemini_text, 25, "Say hi in 3 words")
+        except Exception as e:
+            info["test"] = f"FAILED: {type(e).__name__}: {str(e)[:400]}"
+    return jsonify(info)
 
 
 FERTILIZER_QUANTITY_GUIDE = {
@@ -1233,6 +1391,16 @@ def recommend_fertilizer():
 
         quantity = FERTILIZER_QUANTITY_GUIDE.get(fertilizer, '50-100 kg/acre')
 
+        # Log every successful recommendation (user_id nullable -- see
+        # DiseaseHistory logging above for why).
+        h = FertilizerHistory(
+            user_id=session.get("user_id"),
+            crop_type=crop_type, soil_type=soil_type,
+            fertilizer=fertilizer, confidence=confidence,
+        )
+        db.session.add(h)
+        db.session.commit()
+
         return jsonify({
             "success": True,
             "recommended_fertilizer": fertilizer,
@@ -1283,6 +1451,15 @@ def predict_disease():
 
         disease_label = "Healthy" if is_healthy else condition
 
+        # Log every successful classification (user_id nullable -- counts
+        # guest usage too, so /api/stats reflects real total usage).
+        h = DiseaseHistory(
+            user_id=session.get("user_id"),
+            plant=plant, disease=disease_label, confidence=confidence,
+        )
+        db.session.add(h)
+        db.session.commit()
+
         return jsonify({
             "success": True,
             "plant": plant,
@@ -1301,4 +1478,4 @@ def predict_disease():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", debug=True, port=5000)
+    app.run(host="0.0.0.0", debug=False, port=5000)

@@ -10,3 +10,4 @@ flask_sqlalchemy
 flask_core
 torch
 torchvision
+react-markdown
