@@ -7,6 +7,11 @@ import Dashboard from './pages/Dashboard';
 import CropPrediction from './pages/CropPrediction';
 import DiseasePrediction from './pages/DiseasePrediction';
 import Fertilizer from './pages/Fertilizer';
+import ExpertDirectory from './pages/ExpertDirectory';
+import MyConsultations from './pages/MyConsultations';
+import ConsultationRoom from './pages/ConsultationRoom';
+import ExpertPortal from './pages/ExpertPortal';
+import AdminExperts from './pages/AdminExperts';
 import AboutUs from './pages/AboutUs';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -27,6 +32,7 @@ function Navigation({ user, isAuthenticated }) {
     { to: '/crop-prediction', label: t('nav.cropPrediction'), testId: 'nav-crop-prediction' },
     { to: '/disease-prediction', label: t('nav.diseasePrediction'), testId: 'nav-disease-prediction' },
     { to: '/fertilizer', label: t('nav.fertilizer'), testId: 'nav-fertilizer' },
+    { to: '/experts', label: t('nav.experts'), testId: 'nav-experts' },
     { to: '/about', label: t('nav.about'), testId: 'nav-about' },
   ];
 
@@ -219,6 +225,11 @@ function App() {
           <Route path="/crop-prediction" element={<CropPrediction />} />
           <Route path="/disease-prediction" element={<DiseasePrediction />} />
           <Route path="/fertilizer" element={<Fertilizer />} />
+          <Route path="/experts" element={<ExpertDirectory />} />
+          <Route path="/my-consultations" element={<MyConsultations />} />
+          <Route path="/consultation/:id" element={<ConsultationRoom />} />
+          <Route path="/expert" element={<ExpertPortal />} />
+          <Route path="/admin/experts" element={<AdminExperts />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/login" element={<Login onLogin={refreshUser} />} />
 

@@ -1,9 +1,33 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
+const SEVERITY_STYLE = {
+    none: 'bg-green-100 text-green-700',
+    low: 'bg-yellow-100 text-yellow-700',
+    medium: 'bg-orange-100 text-orange-700',
+    high: 'bg-red-100 text-red-700',
+};
+
+function InfoList({ title, items }) {
+    if (!items || items.length === 0) return null;
+    return (
+        <div className="mb-5">
+            <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">{title}</h4>
+            <ul className="list-disc pl-5 space-y-1 text-gray-700 dark:text-gray-200">
+                {items.map((item, i) => <li key={i}>{item}</li>)}
+            </ul>
+        </div>
+    );
+}
+
 function DiseasePrediction() {
+    const { t, i18n } = useTranslation();
+    const [info, setInfo] = useState(null);
+    const [infoLoading, setInfoLoading] = useState(false);
+    const [infoError, setInfoError] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const [previewUrl, setPreviewUrl] = useState(null);
     const [result, setResult] = useState(null);
@@ -15,7 +39,7 @@ function DiseasePrediction() {
         const file = e.target.files?.[0];
         if (!file) return;
         setSelectedFile(file);
-        setResult(null);
+        setResult(null); setInfo(null); setInfoError(null);
         setError(null);
         setPreviewUrl(URL.createObjectURL(file));
     };
@@ -25,7 +49,7 @@ function DiseasePrediction() {
         const file = e.dataTransfer.files?.[0];
         if (!file) return;
         setSelectedFile(file);
-        setResult(null);
+        setResult(null); setInfo(null); setInfoError(null);
         setError(null);
         setPreviewUrl(URL.createObjectURL(file));
     };
@@ -56,10 +80,44 @@ function DiseasePrediction() {
         }
     };
 
+    // Step 2: ask Gemini to explain the predicted disease in the selected language.
+    // Re-runs automatically if the user switches language after a prediction.
+    const fetchInfo = async (cancelledRef) => {
+        if (!result?.raw_class) return;
+        setInfoLoading(true);
+        setInfoError(null);
+        try {
+            const response = await axios.post(`${BACKEND_URL}/api/disease-info`, {
+                raw_class: result.raw_class,
+                language: i18n.language,
+            });
+            if (cancelledRef?.current) return;
+            if (response.data.success) {
+                setInfo(response.data.info);
+            } else {
+                setInfo(null);
+                setInfoError(response.data.error || 'unavailable');
+            }
+        } catch (err) {
+            if (cancelledRef?.current) return;
+            setInfo(null);
+            setInfoError(err.response?.data?.error || 'unavailable');
+        } finally {
+            if (!cancelledRef?.current) setInfoLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const cancelled = { current: false };
+        fetchInfo(cancelled);
+        return () => { cancelled.current = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [result?.raw_class, i18n.language]);
+
     const handleReset = () => {
         setSelectedFile(null);
         setPreviewUrl(null);
-        setResult(null);
+        setResult(null); setInfo(null); setInfoError(null);
         setError(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -181,6 +239,55 @@ function DiseasePrediction() {
 
                     <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">Detected Condition</h3>
                     <p className="text-4xl font-bold text-blue-600" data-testid="detected-disease">{result.disease}</p>
+                </div>
+
+                {/* Gemini disease details (translated) */}
+                <div className="mt-6 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md" data-testid="disease-info">
+                    <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">{t('disease.aboutDisease')}</h3>
+
+                    {infoLoading && (
+                        <p className="text-gray-500 dark:text-gray-400 animate-pulse">{t('disease.loadingInfo')}</p>
+                    )}
+
+                    {!infoLoading && infoError && (
+                        <div className="flex items-center justify-between gap-4">
+                            <p className="text-red-600">{infoError}</p>
+                            <button
+                                type="button"
+                                onClick={() => fetchInfo()}
+                                className="shrink-0 bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600"
+                            >
+                                {t('disease.retry')}
+                            </button>
+                        </div>
+                    )}
+
+                    {!infoLoading && info && (
+                        <>
+                            <div className="flex flex-wrap items-center gap-3 mb-4">
+                                {info.disease_name && (
+                                    <span className="text-xl font-semibold text-gray-800 dark:text-gray-100">{info.disease_name}</span>
+                                )}
+                                {info.severity !== 'none' && (
+                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${SEVERITY_STYLE[info.severity] || SEVERITY_STYLE.medium}`}>
+                                        {t('disease.severity')}: {info.severity_label || info.severity}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-gray-700 dark:text-gray-200 mb-5">{info.summary}</p>
+                            <InfoList title={t('disease.symptoms')} items={info.symptoms} />
+                            <InfoList title={t('disease.causes')} items={info.causes} />
+                            <InfoList title={t('disease.treatment')} items={info.treatment} />
+                            <InfoList title={t('disease.prevention')} items={info.prevention} />
+                            {info.when_to_consult && (
+                                <div className="mb-4 p-4 rounded-lg bg-blue-50 dark:bg-slate-700">
+                                    <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-300 mb-1">{t('disease.consult')}</h4>
+                                    <p className="text-gray-700 dark:text-gray-200">{info.when_to_consult}</p>
+                                </div>
+                            )}
+                            <p className="text-xs text-gray-400">{t('disease.aiNote')}</p>
+                        </>
+                    )}
                 </div>
                 </div>
             )}

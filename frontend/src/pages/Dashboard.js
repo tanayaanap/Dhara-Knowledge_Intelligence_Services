@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
+import SchemesNewsWidget from '../components/SchemesNewsWidget';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -87,6 +88,9 @@ function Dashboard({ user }) {
                 </div>
             </div>
             </div>
+
+            {/* Latest agricultural scheme news */}
+            <SchemesNewsWidget />
 
             {/* Features Grid */}
             <div className="grid md:grid-cols-3 gap-8 mb-16">

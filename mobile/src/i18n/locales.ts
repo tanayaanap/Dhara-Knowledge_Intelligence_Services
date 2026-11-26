@@ -64,6 +64,11 @@ export const locales = {
       choosePhoto: 'Choose photo', takePhoto: 'Take photo',
       submit: 'Check for disease', error: 'Could not analyze the image. Try a clearer photo.',
       healthy: 'Healthy', confidence: '{{pct}}% confidence',
+      about: 'About this disease', symptoms: 'Symptoms', causes: 'Causes',
+      treatment: 'Treatment', prevention: 'Prevention', severity: 'Severity',
+      consult: 'When to get expert help', loadingInfo: 'Getting details in your language...',
+      retry: 'Try again',
+      aiNote: 'AI-generated guidance. Confirm with your local agriculture officer or KVK before treating.',
     },
     cropHub: {
       label: 'Crop tools', title: 'Everything for your crop',

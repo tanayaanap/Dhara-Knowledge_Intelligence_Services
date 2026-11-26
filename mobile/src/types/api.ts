@@ -87,3 +87,22 @@ export type DiseaseResult = {
   prevention: string | null;
   error?: string;
 };
+
+export type DiseaseInfo = {
+  disease_name: string;
+  summary: string;
+  severity: 'none' | 'low' | 'medium' | 'high';
+  severity_label: string;
+  symptoms: string[];
+  causes: string[];
+  treatment: string[];
+  prevention: string[];
+  when_to_consult: string;
+};
+
+export type DiseaseInfoResult = {
+  success: boolean;
+  language: string;
+  info?: DiseaseInfo;
+  error?: string;
+};

@@ -10,7 +10,8 @@ import {
   FertilizerInput, 
   FertilizerResult, 
   MlOptions, 
-  DiseaseResult
+  DiseaseResult,
+  DiseaseInfoResult
 } from '@/types/api';
 import { getSessionCookie, setSessionCookie } from './session-store';
 
@@ -117,5 +118,15 @@ export async function predictDisease(file: { uri: string; name: string; mimeType
   const { data } = await api.post<DiseaseResult>('/api/predict-disease', form, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
+  return data;
+}
+
+export async function getDiseaseInfo(rawClass: string, language: string) {
+  // Gemini can take longer than the default 15 s timeout on a cold call
+  const { data } = await api.post<DiseaseInfoResult>(
+    '/api/disease-info',
+    { raw_class: rawClass, language },
+    { timeout: 40000 },
+  );
   return data;
 }

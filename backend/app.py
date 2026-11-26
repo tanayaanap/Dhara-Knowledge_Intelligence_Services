@@ -33,6 +33,9 @@ from PIL import Image as PILImage
 from model import load_model, CLASS_NAMES
 from dotenv import load_dotenv
 from chatbot import match_intent, DEFAULT_RESPONSE
+from disease_info import get_disease_info
+import schemes_news
+from experts_api import bp as experts_bp
 from fast_helpers import (timed, start_climate_fetch, ocr_image, call_with_timeout,
                             climate_or_default, safe_gemini, gemini_status, reset_gemini_breaker)
 
@@ -75,18 +78,37 @@ def _gemini_text(prompt: str) -> str:
     return reply
 
 
+def _gemini_json(prompt: str) -> str:
+    """Gemini call that asks for a JSON reply (used for disease information)."""
+    resp = gemini_client.models.generate_content(
+        model=GEMINI_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.3,
+        ),
+    )
+    reply = (getattr(resp, "text", None) or "").strip()
+    if not reply:
+        raise RuntimeError("Gemini returned an empty response")
+    return reply
+
+
 # ── App setup ────────────────────────────────────────────────────────────────
 app = Flask(__name__)
 
 CORS(
     app,
     resources={r"/api/*": {"origins": [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
         "http://localhost:8081",
         "http://127.0.0.1:8081",
     ]}},
     supports_credentials=True,
 )
 
+app.register_blueprint(experts_bp)
 app.secret_key = os.getenv("SECRET_KEY", "dhara_secret_123")
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///dhara.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -1475,6 +1497,80 @@ def predict_disease():
         import traceback
         traceback.print_exc()
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/disease-info", methods=["POST"])
+def disease_info():
+    """
+    Step 2 of disease detection: Gemini explains the predicted disease in the
+    user's language.  Body: {"raw_class": "Tomato___Late_blight", "language": "hi"}
+    """
+    body = request.get_json(silent=True) or {}
+    raw_class = str(body.get("raw_class", "")).strip()
+    lang_code = str(body.get("language", "en")).lower().replace("_", "-").split("-")[0]
+    if lang_code not in LANGUAGE_NAMES:
+        lang_code = "en"
+
+    if raw_class not in CLASS_NAMES:
+        return jsonify({"success": False, "error": "Unknown disease class."}), 400
+
+    try:
+        with timed("gemini disease info"):
+            info = safe_gemini(get_disease_info, GEMINI_CHAT_TIMEOUT,
+                               raw_class, lang_code, _gemini_json, CLASS_NAMES)
+        return jsonify({"success": True, "language": lang_code, "info": info})
+    except Exception as e:
+        print(f"[DISEASE-INFO] Gemini failed: {type(e).__name__}: {e}", flush=True)
+        # 200 + success False so the app still shows the diagnosis and a retry option
+        return jsonify({"success": False, "language": lang_code,
+                        "error": "Details are unavailable right now. Please try again shortly."}), 200
+
+
+@app.route("/api/schemes-news")
+def schemes_news_api():
+    """
+    Latest agricultural-scheme headlines.
+    GET /api/schemes-news?topic=all&language=hi
+    topics: all | pmkisan | insurance | credit | msp | maharashtra
+    Headlines come from a live news feed; Gemini only filters, translates and
+    summarises them. If Gemini fails, the original headlines are returned.
+    """
+    topic = request.args.get("topic", "all")
+    lang = str(request.args.get("language", "en")).lower().replace("_", "-").split("-")[0]
+    if lang not in LANGUAGE_NAMES:
+        lang = "en"
+    if topic not in schemes_news.TOPICS:
+        return jsonify({"success": False, "error": "Unknown topic."}), 400
+
+    cached = schemes_news.cached_result(topic, lang)
+    if cached:
+        return jsonify({"success": True, "topic": topic, "language": lang,
+                        "translated": True, **cached})
+
+    # 1) real headlines (kept outside safe_gemini so feed problems never trip the Gemini breaker)
+    try:
+        headlines = schemes_news.fetch_headlines(topic)
+    except Exception as e:
+        print(f"[SCHEMES-NEWS] feed failed: {type(e).__name__}: {e}", flush=True)
+        return jsonify({"success": False, "topic": topic, "language": lang,
+                        "error": "Could not fetch news right now. Please try again shortly."}), 200
+    if not headlines:
+        return jsonify({"success": True, "topic": topic, "language": lang,
+                        "translated": True, "items": [], "overview": ""})
+
+    # 2) Gemini: filter + translate + overview
+    try:
+        with timed("gemini schemes news"):
+            result = safe_gemini(schemes_news.localize, GEMINI_CHAT_TIMEOUT,
+                                 headlines, lang, _gemini_json)
+        schemes_news.store_result(topic, lang, result)
+        return jsonify({"success": True, "topic": topic, "language": lang,
+                        "translated": True, **result})
+    except Exception as e:
+        print(f"[SCHEMES-NEWS] Gemini failed: {type(e).__name__}: {e}", flush=True)
+        # still useful: original (English) headlines, flagged as untranslated, not cached
+        return jsonify({"success": True, "topic": topic, "language": lang,
+                        "translated": False, **schemes_news.raw_result(headlines)})
 
 
 if __name__ == "__main__":
