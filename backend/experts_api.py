@@ -5,11 +5,14 @@ Farmers browse APPROVED experts and request a paid-by-the-minute consultation.
 Experts have their own login and a dashboard. An admin (X-Admin-Key header)
 approves experts before they become visible.
 
+Payment is a DEMO: the farmer picks a method on a pretend payment window and a receipt is
+created. No real money moves and no card or UPI details are collected.
+
 Billing: minutes = elapsed time rounded UP (minimum 1) x the rate that applied when
 the farmer made the request. The clock starts only when the FARMER presses Start
 (consent to billing) and stops when either side ends the session, after 20 idle
-minutes, or at the 120-minute cap. No payment is collected in this version -- the
-amount is recorded so a gateway (e.g. Razorpay) can be added later.
+minutes, or at the 120-minute cap. The amount is recorded
+on the consultation; the demo payment step then marks it paid.
 """
 
 import datetime
@@ -17,10 +20,12 @@ import hmac
 import math
 import os
 import re
+import secrets
 
 from flask import Blueprint, jsonify, request, session
+from sqlalchemy.exc import IntegrityError
 
-from models import db, User, Expert, Consultation, ChatMessage
+from models import db, User, Expert, Consultation, ChatMessage, Payment
 
 bp = Blueprint("experts", __name__)
 
@@ -34,6 +39,7 @@ MIN_RATE, MAX_RATE = 1, 500          # INR per minute
 IDLE_LIMIT_MIN = 20                  # auto-end an active session after this much silence
 MAX_SESSION_MIN = 120
 MAX_OPEN_PER_FARMER = 5
+PAY_METHODS = ("upi", "card", "netbanking")
 OPEN_STATES = ("requested", "accepted", "active")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -107,6 +113,13 @@ def _auto_end(c):
     db.session.commit()
 
 
+def _payment_dict(p):
+    if not p:
+        return None
+    return {"paid": p.status == "paid", "receipt_no": p.receipt_no, "method": p.method,
+            "amount": p.amount, "paid_at": _iso(p.paid_at)}
+
+
 def _consultation_dict(c, role):
     expert = Expert.query.get(c.expert_id)
     farmer = User.query.get(c.farmer_id)
@@ -122,6 +135,7 @@ def _consultation_dict(c, role):
         "expert_qualification": expert.qualification if expert else "",
         "farmer_name": (farmer.name or "Farmer") if farmer else "Farmer",
         "idle_limit_minutes": IDLE_LIMIT_MIN,
+        "payment": _payment_dict(Payment.query.filter_by(consultation_id=c.id).first()),
     }
 
 
@@ -399,6 +413,60 @@ def consultation_action(cid):
 
     db.session.commit()
     return jsonify({"success": True, "consultation": _consultation_dict(c, role)})
+
+
+# ── demo payment + receipt ───────────────────────────────────────────────────
+@bp.route("/api/consultations/<int:cid>/pay", methods=["POST"])
+def pay_consultation(cid):
+    c, role, err = _load(cid)
+    if err:
+        return err
+    if role != "farmer":
+        return _err("Only the farmer can pay for a consultation.", 403)
+    if c.status != "completed":
+        return _err("You can pay after the consultation has ended.", 409)
+    if Payment.query.filter_by(consultation_id=c.id).first():
+        return _err("This consultation is already paid.", 409)
+    method = str((request.get_json(silent=True) or {}).get("method", ""))
+    if method not in PAY_METHODS:
+        return _err("Please choose a payment method.")
+    if not c.amount or c.amount <= 0:
+        return _err("Nothing to pay for this consultation.", 409)
+
+    now = _now()
+    p = Payment(consultation_id=c.id, farmer_id=c.farmer_id, expert_id=c.expert_id,
+                amount=c.amount, method=method, status="paid", paid_at=now,
+                receipt_no=f"DHR-{now:%Y%m%d}-{c.id:05d}",
+                reference="DEMO" + secrets.token_hex(5).upper())
+    db.session.add(p)
+    try:
+        db.session.commit()
+    except IntegrityError:          # two clicks at once: the unique constraint stops the second
+        db.session.rollback()
+        return _err("This consultation is already paid.", 409)
+    return jsonify({"success": True, "payment": _payment_dict(p),
+                    "consultation": _consultation_dict(c, role)})
+
+
+@bp.route("/api/consultations/<int:cid>/receipt")
+def receipt(cid):
+    c, role, err = _load(cid)
+    if err:
+        return err
+    p = Payment.query.filter_by(consultation_id=c.id).first()
+    if not p:
+        return _err("No payment found for this consultation.", 404)
+    expert = Expert.query.get(c.expert_id)
+    farmer = User.query.get(c.farmer_id)
+    return jsonify({"success": True, "receipt": {
+        "receipt_no": p.receipt_no, "reference": p.reference, "method": p.method,
+        "amount": p.amount, "status": p.status, "paid_at": _iso(p.paid_at),
+        "topic": c.topic, "minutes_billed": c.minutes_billed, "rate_per_minute": c.rate_snapshot,
+        "started_at": _iso(c.started_at), "ended_at": _iso(c.ended_at),
+        "expert_name": expert.name if expert else "", "expert_qualification": expert.qualification if expert else "",
+        "farmer_name": (farmer.name or "Farmer") if farmer else "Farmer",
+        "role": role,
+    }})
 
 
 # ── admin ────────────────────────────────────────────────────────────────────

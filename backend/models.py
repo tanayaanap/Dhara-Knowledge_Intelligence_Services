@@ -210,3 +210,23 @@ class ChatMessage(db.Model):
     sender          = db.Column(db.String(10), nullable=False)   # farmer | expert
     text            = db.Column(db.Text, nullable=False)
     created_at      = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+
+
+class Payment(db.Model):
+    """
+    DEMO payment: records that a farmer "paid" for a completed consultation.
+    No real money moves and no card/UPI details are collected or stored.
+    One payment per consultation (unique constraint also blocks double-paying in a race).
+    """
+    __tablename__ = "payment"
+
+    id              = db.Column(db.Integer, primary_key=True)
+    consultation_id = db.Column(db.Integer, db.ForeignKey("consultation.id"), unique=True, nullable=False)
+    farmer_id       = db.Column(db.Integer, db.ForeignKey("user.id"),   nullable=False)
+    expert_id       = db.Column(db.Integer, db.ForeignKey("expert.id"), nullable=False)
+    amount          = db.Column(db.Float, nullable=False)
+    method          = db.Column(db.String(20), default="upi")      # upi | card | netbanking
+    status          = db.Column(db.String(20), default="paid")
+    receipt_no      = db.Column(db.String(30), unique=True)
+    reference       = db.Column(db.String(30), default="")         # fake transaction id
+    paid_at         = db.Column(db.DateTime, default=datetime.datetime.utcnow)

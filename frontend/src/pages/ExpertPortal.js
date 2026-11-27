@@ -120,7 +120,9 @@ function Dashboard({ expert, setExpert, onLogout }) {
     };
 
     const approved = expert.status === 'approved';
-    const earned = items.filter((c) => c.status === 'completed').reduce((s, c) => s + c.amount, 0);
+    const completed = items.filter((c) => c.status === 'completed');
+    const earned = completed.filter((c) => c.payment?.paid).reduce((sum, c) => sum + c.amount, 0);
+    const pending = completed.filter((c) => !c.payment?.paid).reduce((sum, c) => sum + c.amount, 0);
     const requests = items.filter((c) => c.status === 'requested');
     const running = items.filter((c) => c.status === 'accepted' || c.status === 'active');
     const history = items.filter((c) => ['completed', 'declined', 'cancelled'].includes(c.status));
@@ -135,7 +137,7 @@ function Dashboard({ expert, setExpert, onLogout }) {
         <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-gray-100 dark:border-slate-700 last:border-0">
             <div>
                 <p className="font-semibold text-gray-800 dark:text-white">{c.topic}</p>
-                <p className="text-sm text-gray-500">{c.farmer_name} · {money(c.rate_per_minute)}/min{c.status === 'completed' ? ` · ${c.minutes_billed} min · ${money(c.amount)}` : ''}</p>
+                <p className="text-sm text-gray-500">{c.farmer_name} · {money(c.rate_per_minute)}/min{c.status === 'completed' ? ` · ${c.minutes_billed} min · ${money(c.amount)} · ${c.payment?.paid ? 'paid' : 'awaiting payment'}` : ''}</p>
             </div>
             <div className="flex items-center gap-2">
                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[c.status]}`}>{c.status}</span>
@@ -181,7 +183,7 @@ function Dashboard({ expert, setExpert, onLogout }) {
                 </div>
                 {msg && <p className="mt-3 text-sm text-green-700">{msg}</p>}
                 {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-                <p className="mt-4 text-xs text-gray-500">Total billed so far: <strong>{money(earned)}</strong> (payments are not collected in this version).</p>
+                <p className="mt-4 text-xs text-gray-500">Paid: <strong>{money(earned)}</strong> · Awaiting payment: <strong>{money(pending)}</strong> (demo payments, no real money moves).</p>
             </div>
 
             {approved && (

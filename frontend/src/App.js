@@ -10,6 +10,7 @@ import Fertilizer from './pages/Fertilizer';
 import ExpertDirectory from './pages/ExpertDirectory';
 import MyConsultations from './pages/MyConsultations';
 import ConsultationRoom from './pages/ConsultationRoom';
+import Receipt from './pages/Receipt';
 import ExpertPortal from './pages/ExpertPortal';
 import AdminExperts from './pages/AdminExperts';
 import AboutUs from './pages/AboutUs';
@@ -228,6 +229,7 @@ function App() {
           <Route path="/experts" element={<ExpertDirectory />} />
           <Route path="/my-consultations" element={<MyConsultations />} />
           <Route path="/consultation/:id" element={<ConsultationRoom />} />
+          <Route path="/receipt/:id" element={<Receipt />} />
           <Route path="/expert" element={<ExpertPortal />} />
           <Route path="/admin/experts" element={<AdminExperts />} />
           <Route path="/about" element={<AboutUs />} />

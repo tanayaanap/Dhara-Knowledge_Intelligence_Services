@@ -56,6 +56,9 @@ function MyConsultations() {
                                 {c.status === 'completed' && (
                                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
                                         {t('experts.room.summaryMinutes')}: {c.minutes_billed} · {t('experts.room.summaryAmount')}: <strong>{money(c.amount)}</strong>
+                                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${c.payment?.paid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-800'}`}>
+                                            {c.payment?.paid ? t('experts.pay.paid') : t('experts.pay.unpaid')}
+                                        </span>
                                     </p>
                                 )}
                             </Link>

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, money, STATUS_STYLE } from '../lib/expertApi';
+import PaymentModal from '../components/PaymentModal';
 
 const LIVE = ['requested', 'accepted', 'active'];
 
@@ -20,6 +21,7 @@ function ConsultationRoom() {
     const [error, setError] = useState(null);
     const [text, setText] = useState('');
     const [busy, setBusy] = useState(false);
+    const [showPay, setShowPay] = useState(false);
     const [, setTick] = useState(0);
     const lastId = useRef(0);
     const polledAt = useRef(Date.now());
@@ -144,11 +146,24 @@ function ConsultationRoom() {
                         <div className="mt-4 bg-green-50 dark:bg-slate-700 border border-green-200 dark:border-slate-600 rounded-2xl p-5">
                             <div className="flex flex-wrap gap-8">
                                 <div><div className="text-sm text-gray-500">{t('experts.room.summaryMinutes')}</div><div className="text-2xl font-bold text-gray-800 dark:text-white">{c.minutes_billed}</div></div>
+                                <div><div className="text-sm text-gray-500">{t('experts.pay.rate')}</div><div className="text-2xl font-bold text-gray-800 dark:text-white">{money(c.rate_per_minute)}</div></div>
                                 <div><div className="text-sm text-gray-500">{t('experts.room.summaryAmount')}</div><div className="text-2xl font-bold text-green-600">{money(c.amount)}</div></div>
                             </div>
                             {(c.ended_by === 'idle' || c.ended_by === 'limit') && (
                                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t(c.ended_by === 'idle' ? 'experts.room.endedIdle' : 'experts.room.endedLimit')}</p>
                             )}
+                            <div className="mt-4 flex flex-wrap items-center gap-3">
+                                {c.payment?.paid ? (<>
+                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">{t('experts.pay.paid')}</span>
+                                    <Link to={`/receipt/${c.id}`} className="text-green-700 dark:text-green-400 underline text-sm font-medium">{t('experts.pay.viewReceipt')}</Link>
+                                </>) : isFarmer ? (
+                                    <button type="button" onClick={() => setShowPay(true)} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>
+                                        {t('experts.pay.payNow', { amount: money(c.amount) })}
+                                    </button>
+                                ) : (
+                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">{t('experts.pay.awaiting')}</span>
+                                )}
+                            </div>
                             <p className="mt-2 text-xs text-gray-500">{t('experts.room.paymentNote')}</p>
                         </div>
                     )}
@@ -183,6 +198,7 @@ function ConsultationRoom() {
                     </div>
                 </div>
             </div>
+            {showPay && <PaymentModal consultation={c} onPaid={(nc) => setC(nc)} onClose={() => setShowPay(false)} />}
         </div>
     );
 }
