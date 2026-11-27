@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import axios from 'axios';
+import WeatherPopup from '../components/WeatherPopup';
 
 // Relative path (routed through the CRA dev-server proxy) instead of an
 // absolute URL -- an absolute URL makes every request cross-origin, and the
@@ -11,10 +12,10 @@ const INPUT_FIELDS = [
   { name: 'nitrogen', label: 'Nitrogen (N)', unit: 'kg/ha', icon: '🔵' },
   { name: 'phosphorus', label: 'Phosphorus (P)', unit: 'kg/ha', icon: '🟠' },
   { name: 'potassium', label: 'Potassium (K)', unit: 'kg/ha', icon: '🟣' },
-  { name: 'temperature', label: 'Temperature', unit: '°C', icon: '🌡️' },
-  { name: 'humidity', label: 'Humidity', unit: '%', icon: '💧' },
+  { name: 'temperature', label: 'Temperature', unit: '°C', icon: '🌡️', optional: true },
+  { name: 'humidity', label: 'Humidity', unit: '%', icon: '💧', optional: true },
   { name: 'ph', label: 'pH Level', unit: '', icon: '⚗️' },
-  { name: 'rainfall', label: 'Rainfall', unit: 'mm', icon: '🌧️' },
+  { name: 'rainfall', label: 'Rainfall', unit: 'mm', icon: '🌧️', optional: true },
 ];
 
 // The 12 Soil Health Card parameters the backend's OCR pipeline extracts.
@@ -207,12 +208,16 @@ function CropPrediction() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const CLIMATE_KEYS = ['temperature', 'humidity', 'rainfall'];
     for (let key in formData) {
-      if (formData[key] === "") {
-        setError("Please fill all fields!");
+      if (!CLIMATE_KEYS.includes(key) && formData[key] === "") {
+        setError("Please fill N, P, K and pH!");
         return;
       }
     }
+    // Climate is sent only if ALL THREE are filled. Otherwise it is omitted so the
+    // backend fetches it from the logged-in user's saved location (Open-Meteo).
+    const climateFilled = CLIMATE_KEYS.every((k) => formData[k] !== "");
 
     setLoading(true);
     setError(null);
@@ -225,10 +230,13 @@ function CropPrediction() {
           N: Number(formData.nitrogen),
           P: Number(formData.phosphorus),
           K: Number(formData.potassium),
-          temperature: Number(formData.temperature),
-          humidity: Number(formData.humidity),
           ph: Number(formData.ph),
-          rainfall: Number(formData.rainfall),
+          ...(climateFilled && {
+            use_manual_climate: true,
+            temperature: Number(formData.temperature),
+            humidity: Number(formData.humidity),
+            rainfall: Number(formData.rainfall),
+          }),
         },
         { withCredentials: true }
       );
@@ -317,6 +325,8 @@ function CropPrediction() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-slate-900 dark:to-slate-800 py-12">
+      
+      
       <div className="container mx-auto px-6">
         <div className="max-w-4xl mx-auto">
 
@@ -369,9 +379,9 @@ function CropPrediction() {
                         name={field.name}
                         value={formData[field.name]}
                         onChange={handleChange}
-                        required
+                        required={!field.optional}
                         className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-gray-800 dark:text-gray-500 bg-white/80 dark:bg-slate-700/75 focus:bg-white/90 dark:focus:bg-slate-700/90"
-                        placeholder={`Enter ${field.label.toLowerCase()}`}
+                        placeholder={field.optional ? 'Leave blank to auto-fetch' : `Enter ${field.label.toLowerCase()}`}
                         data-testid={`input-${field.name}`}
                       />
                     </div>
@@ -402,6 +412,14 @@ function CropPrediction() {
                 </div>
               )}
 
+              {result?.climate && (
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-4">
+                  🌦️ Climate {result.climate.location_used
+                    ? `auto-fetched for ${result.climate.location_used}`
+                    : 'defaults used (save your location in Profile for real data)'}
+                  : {result.climate.temperature}°C, {result.climate.humidity}% humidity, {result.climate.rainfall}mm annual rain
+                </p>
+              )}
               <ResultBlock results={result?.results} insights={result?.insights} explanation={result?.explanation} />
             </div>
           )}
@@ -585,6 +603,8 @@ function CropPrediction() {
         </div>
       </div>
     </div>
+  
+  
   );
 }
 

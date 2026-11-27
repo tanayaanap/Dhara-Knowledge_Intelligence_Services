@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import SchemesNewsWidget from '../components/SchemesNewsWidget';
+import WeatherPopup from '../components/WeatherPopup';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
@@ -58,6 +59,7 @@ function Dashboard({ user }) {
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-slate-900 dark:to-slate-800">
+            <WeatherPopup />
         {/* Hero Section */}
         <div className="container mx-auto px-6 py-16">
             <div className="text-center mb-16 animate-fade-in">

@@ -463,7 +463,7 @@ def geocode_location(location: str):
         r = requests.get(
             "https://geocoding-api.open-meteo.com/v1/search",
             params={"name": location, "count": 1, "language": "en", "format": "json"},
-            timeout=5
+            timeout=8
         )
         data = r.json()
         if data.get("results"):
@@ -491,7 +491,7 @@ def fetch_climate_data(location: str) -> dict:
         return defaults
 
     try:
-        end   = datetime.date.today()
+        end   = datetime.date.today() - datetime.timedelta(days=5)   # archive lags ~5 days
         start = end - datetime.timedelta(days=365)
 
         r = requests.get(
@@ -504,7 +504,7 @@ def fetch_climate_data(location: str) -> dict:
                 "daily": "temperature_2m_mean,relative_humidity_2m_mean,precipitation_sum",
                 "timezone": "auto",
             },
-            timeout=8
+            timeout=15
         )
         body = r.json()
 
@@ -942,22 +942,26 @@ def predict():
         # Climate: use provided values or auto-fetch from Open-Meteo
         # Session user's saved location always takes priority over anything
         # the frontend might send, since the manual form has no location field.
-        temp_provided   = data.get("temperature") is not None
+        # Profile location is read first. Climate typed in the browser is used ONLY if
+        # the frontend explicitly says "use_manual_climate", or if there is no location
+        # to fetch from. This way an old frontend that always sends temperature/humidity/
+        # rainfall can no longer block the automatic weather lookup.
+        location = ""
+        if "user_id" in session:
+            u = User.query.get(session["user_id"])
+            if u:
+                location = (u.location or "").strip()
+        if not location:
+            location = (data.get("location") or "").strip()
+
+        manual_climate  = bool(data.get("use_manual_climate")) or \
+                          (not location and data.get("temperature") is not None)
         climate_fetched = None
-        if temp_provided:
+        if manual_climate:
             temperature = safe_float(data.get("temperature"), 25.0)
             humidity    = safe_float(data.get("humidity"),    70.0)
             rainfall    = safe_float(data.get("rainfall"),   100.0)
         else:
-            # Always read from user profile first
-            location = ""
-            if "user_id" in session:
-                u = User.query.get(session["user_id"])
-                if u:
-                    location = (u.location or "").strip()
-            # Allow fallback from request body if profile has no location
-            if not location:
-                location = (data.get("location") or "").strip()
             with timed("climate"):
                 climate = climate_or_default(start_climate_fetch(location, fetch_climate_data))
             temperature     = climate["temperature"]
@@ -1226,6 +1230,117 @@ def stats():
     return jsonify({"total": total, "crop": crop, "disease": disease,
                     "fertilizer": fertilizer, "ocr": ocr, "users": users,
                     "authenticated": True})
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WEATHER WIDGET (dashboard popup) -- Open-Meteo, same provider + geocoding + saved
+# profile location as the crop-prediction climate lookup, but CURRENT conditions.
+# ═══════════════════════════════════════════════════════════════════════════════
+import time as _time
+
+_WMO = {   # WMO weather code -> (label, icon)
+    0: ("Clear sky", "☀️"), 1: ("Mainly clear", "🌤️"), 2: ("Partly cloudy", "⛅"), 3: ("Overcast", "☁️"),
+    45: ("Fog", "🌫️"), 48: ("Freezing fog", "🌫️"),
+    51: ("Light drizzle", "🌦️"), 53: ("Drizzle", "🌦️"), 55: ("Heavy drizzle", "🌧️"),
+    56: ("Freezing drizzle", "🌧️"), 57: ("Freezing drizzle", "🌧️"),
+    61: ("Light rain", "🌦️"), 63: ("Rain", "🌧️"), 65: ("Heavy rain", "🌧️"),
+    66: ("Freezing rain", "🌧️"), 67: ("Freezing rain", "🌧️"),
+    71: ("Light snow", "🌨️"), 73: ("Snow", "🌨️"), 75: ("Heavy snow", "❄️"), 77: ("Snow grains", "🌨️"),
+    80: ("Light showers", "🌦️"), 81: ("Showers", "🌧️"), 82: ("Heavy showers", "⛈️"),
+    85: ("Snow showers", "🌨️"), 86: ("Snow showers", "🌨️"),
+    95: ("Thunderstorm", "⛈️"), 96: ("Thunderstorm, hail", "⛈️"), 99: ("Thunderstorm, hail", "⛈️"),
+}
+_WEATHER_CACHE = {}          # location -> (timestamp, data)
+_WEATHER_TTL = 600           # seconds; many dashboard loads = one Open-Meteo call per 10 min
+
+
+def _wmo(code, is_day=True):
+    label, icon = _WMO.get(int(code), ("Unknown", "🌡️"))
+    if not is_day and int(code) in (0, 1):
+        icon = "🌙"
+    return label, icon
+
+
+def _weather_for_location(location: str):
+    """Returns a weather dict, None if the location can't be geocoded. Raises on API failure."""
+    key = location.strip().lower()
+    hit = _WEATHER_CACHE.get(key)
+    if hit and _time.time() - hit[0] < _WEATHER_TTL:
+        return hit[1]
+
+    lat = lon = None
+    # full string first, then the part before the comma ("Pune, Maharashtra" -> "Pune")
+    for variant in dict.fromkeys([location.strip(), location.split(",")[0].strip()]):
+        if variant:
+            lat, lon = geocode_location(variant)
+            if lat is not None:
+                break
+    if lat is None:
+        return None
+
+    r = requests.get(
+        "https://api.open-meteo.com/v1/forecast",
+        params={
+            "latitude": lat, "longitude": lon, "timezone": "auto", "forecast_days": 4,
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,"
+                       "precipitation,weather_code,wind_speed_10m,is_day",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+        },
+        timeout=10,
+    )
+    body = r.json()
+    if body.get("error"):
+        raise RuntimeError(body.get("reason") or "Open-Meteo error")
+
+    cur, day = body["current"], body["daily"]
+    label, icon = _wmo(cur["weather_code"], bool(cur.get("is_day", 1)))
+    forecast = []
+    for i in range(1, min(4, len(day["time"]))):
+        f_label, f_icon = _wmo(day["weather_code"][i])
+        forecast.append({
+            "day": datetime.date.fromisoformat(day["time"][i]).strftime("%a"),
+            "icon": f_icon, "condition": f_label,
+            "high": round(day["temperature_2m_max"][i]), "low": round(day["temperature_2m_min"][i]),
+            "rain_chance": day["precipitation_probability_max"][i],
+        })
+    data = {
+        "place": location.split(",")[0].strip() or location,
+        "temperature": round(cur["temperature_2m"], 1),
+        "feels_like": round(cur["apparent_temperature"], 1),
+        "humidity": round(cur["relative_humidity_2m"]),
+        "wind_kmh": round(cur["wind_speed_10m"]),
+        "precipitation_mm": cur.get("precipitation", 0),
+        "condition": label, "icon": icon,
+        "high": round(day["temperature_2m_max"][0]), "low": round(day["temperature_2m_min"][0]),
+        "rain_chance": day["precipitation_probability_max"][0],
+        "forecast": forecast,
+        "fetched_at": datetime.datetime.now().strftime("%H:%M"),
+    }
+    _WEATHER_CACHE[key] = (_time.time(), data)
+    return data
+
+
+@app.route("/api/weather")
+def weather_widget():
+    """Current weather for the logged-in user's saved location (dashboard popup)."""
+    if "user_id" not in session:
+        return jsonify({"success": False, "reason": "not_logged_in"})
+    u = User.query.get(session["user_id"])
+    location = ((u.location if u else "") or "").strip()
+    if not location:
+        return jsonify({"success": False, "reason": "no_location"})
+    try:
+        with timed("weather widget"):
+            data = _weather_for_location(location)
+    except Exception as e:
+        print(f"[WEATHER] failed: {type(e).__name__}: {e}", flush=True)
+        stale = _WEATHER_CACHE.get(location.strip().lower())
+        if stale:                                   # show last known values rather than nothing
+            return jsonify({"success": True, "stale": True, **stale[1]})
+        return jsonify({"success": False, "reason": "unavailable"})
+    if data is None:
+        return jsonify({"success": False, "reason": "location_not_found", "location": location})
+    return jsonify({"success": True, **data})
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

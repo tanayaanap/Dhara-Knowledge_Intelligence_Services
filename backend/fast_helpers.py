@@ -132,7 +132,7 @@ CLIMATE_DEFAULTS = {"temperature": 25.0, "humidity": 70.0, "rainfall": 100.0,
                     "location_used": None}
 
 
-def climate_or_default(future, timeout: float = 20.0) -> dict:
+def climate_or_default(future, timeout: float = 30.0) -> dict:
     """Wait at most `timeout` seconds for the weather; otherwise use neutral defaults."""
     try:
         return future.result(timeout=timeout)

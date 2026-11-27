@@ -1,0 +1,651 @@
+diff --git a/backend/experts_api.py b/backend/experts_api.py
+index 56251d6..ca6c1ac 100644
+--- a/backend/experts_api.py
++++ b/backend/experts_api.py
+@@ -5,11 +5,14 @@ Farmers browse APPROVED experts and request a paid-by-the-minute consultation.
+ Experts have their own login and a dashboard. An admin (X-Admin-Key header)
+ approves experts before they become visible.
+ 
++Payment is a DEMO: the farmer picks a method on a pretend payment window and a receipt is
++created. No real money moves and no card or UPI details are collected.
++
+ Billing: minutes = elapsed time rounded UP (minimum 1) x the rate that applied when
+ the farmer made the request. The clock starts only when the FARMER presses Start
+ (consent to billing) and stops when either side ends the session, after 20 idle
+-minutes, or at the 120-minute cap. No payment is collected in this version -- the
+-amount is recorded so a gateway (e.g. Razorpay) can be added later.
++minutes, or at the 120-minute cap. The amount is recorded
++on the consultation; the demo payment step then marks it paid.
+ """
+ 
+ import datetime
+@@ -17,10 +20,12 @@ import hmac
+ import math
+ import os
+ import re
++import secrets
+ 
+ from flask import Blueprint, jsonify, request, session
++from sqlalchemy.exc import IntegrityError
+ 
+-from models import db, User, Expert, Consultation, ChatMessage
++from models import db, User, Expert, Consultation, ChatMessage, Payment
+ 
+ bp = Blueprint("experts", __name__)
+ 
+@@ -34,6 +39,7 @@ MIN_RATE, MAX_RATE = 1, 500          # INR per minute
+ IDLE_LIMIT_MIN = 20                  # auto-end an active session after this much silence
+ MAX_SESSION_MIN = 120
+ MAX_OPEN_PER_FARMER = 5
++PAY_METHODS = ("upi", "card", "netbanking")
+ OPEN_STATES = ("requested", "accepted", "active")
+ EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+ 
+@@ -107,6 +113,13 @@ def _auto_end(c):
+     db.session.commit()
+ 
+ 
++def _payment_dict(p):
++    if not p:
++        return None
++    return {"paid": p.status == "paid", "receipt_no": p.receipt_no, "method": p.method,
++            "amount": p.amount, "paid_at": _iso(p.paid_at)}
++
++
+ def _consultation_dict(c, role):
+     expert = Expert.query.get(c.expert_id)
+     farmer = User.query.get(c.farmer_id)
+@@ -122,6 +135,7 @@ def _consultation_dict(c, role):
+         "expert_qualification": expert.qualification if expert else "",
+         "farmer_name": (farmer.name or "Farmer") if farmer else "Farmer",
+         "idle_limit_minutes": IDLE_LIMIT_MIN,
++        "payment": _payment_dict(Payment.query.filter_by(consultation_id=c.id).first()),
+     }
+ 
+ 
+@@ -401,6 +415,60 @@ def consultation_action(cid):
+     return jsonify({"success": True, "consultation": _consultation_dict(c, role)})
+ 
+ 
++# ── demo payment + receipt ───────────────────────────────────────────────────
++@bp.route("/api/consultations/<int:cid>/pay", methods=["POST"])
++def pay_consultation(cid):
++    c, role, err = _load(cid)
++    if err:
++        return err
++    if role != "farmer":
++        return _err("Only the farmer can pay for a consultation.", 403)
++    if c.status != "completed":
++        return _err("You can pay after the consultation has ended.", 409)
++    if Payment.query.filter_by(consultation_id=c.id).first():
++        return _err("This consultation is already paid.", 409)
++    method = str((request.get_json(silent=True) or {}).get("method", ""))
++    if method not in PAY_METHODS:
++        return _err("Please choose a payment method.")
++    if not c.amount or c.amount <= 0:
++        return _err("Nothing to pay for this consultation.", 409)
++
++    now = _now()
++    p = Payment(consultation_id=c.id, farmer_id=c.farmer_id, expert_id=c.expert_id,
++                amount=c.amount, method=method, status="paid", paid_at=now,
++                receipt_no=f"DHR-{now:%Y%m%d}-{c.id:05d}",
++                reference="DEMO" + secrets.token_hex(5).upper())
++    db.session.add(p)
++    try:
++        db.session.commit()
++    except IntegrityError:          # two clicks at once: the unique constraint stops the second
++        db.session.rollback()
++        return _err("This consultation is already paid.", 409)
++    return jsonify({"success": True, "payment": _payment_dict(p),
++                    "consultation": _consultation_dict(c, role)})
++
++
++@bp.route("/api/consultations/<int:cid>/receipt")
++def receipt(cid):
++    c, role, err = _load(cid)
++    if err:
++        return err
++    p = Payment.query.filter_by(consultation_id=c.id).first()
++    if not p:
++        return _err("No payment found for this consultation.", 404)
++    expert = Expert.query.get(c.expert_id)
++    farmer = User.query.get(c.farmer_id)
++    return jsonify({"success": True, "receipt": {
++        "receipt_no": p.receipt_no, "reference": p.reference, "method": p.method,
++        "amount": p.amount, "status": p.status, "paid_at": _iso(p.paid_at),
++        "topic": c.topic, "minutes_billed": c.minutes_billed, "rate_per_minute": c.rate_snapshot,
++        "started_at": _iso(c.started_at), "ended_at": _iso(c.ended_at),
++        "expert_name": expert.name if expert else "", "expert_qualification": expert.qualification if expert else "",
++        "farmer_name": (farmer.name or "Farmer") if farmer else "Farmer",
++        "role": role,
++    }})
++
++
+ # ── admin ────────────────────────────────────────────────────────────────────
+ @bp.route("/api/admin/experts")
+ def admin_list():
+diff --git a/backend/models.py b/backend/models.py
+index 2ac65b1..737153b 100644
+--- a/backend/models.py
++++ b/backend/models.py
+@@ -210,3 +210,23 @@ class ChatMessage(db.Model):
+     sender          = db.Column(db.String(10), nullable=False)   # farmer | expert
+     text            = db.Column(db.Text, nullable=False)
+     created_at      = db.Column(db.DateTime, default=datetime.datetime.utcnow)
++
++
++class Payment(db.Model):
++    """
++    DEMO payment: records that a farmer "paid" for a completed consultation.
++    No real money moves and no card/UPI details are collected or stored.
++    One payment per consultation (unique constraint also blocks double-paying in a race).
++    """
++    __tablename__ = "payment"
++
++    id              = db.Column(db.Integer, primary_key=True)
++    consultation_id = db.Column(db.Integer, db.ForeignKey("consultation.id"), unique=True, nullable=False)
++    farmer_id       = db.Column(db.Integer, db.ForeignKey("user.id"),   nullable=False)
++    expert_id       = db.Column(db.Integer, db.ForeignKey("expert.id"), nullable=False)
++    amount          = db.Column(db.Float, nullable=False)
++    method          = db.Column(db.String(20), default="upi")      # upi | card | netbanking
++    status          = db.Column(db.String(20), default="paid")
++    receipt_no      = db.Column(db.String(30), unique=True)
++    reference       = db.Column(db.String(30), default="")         # fake transaction id
++    paid_at         = db.Column(db.DateTime, default=datetime.datetime.utcnow)
+diff --git a/frontend/src/App.js b/frontend/src/App.js
+index 176ed88..9015b62 100644
+--- a/frontend/src/App.js
++++ b/frontend/src/App.js
+@@ -10,6 +10,7 @@ import Fertilizer from './pages/Fertilizer';
+ import ExpertDirectory from './pages/ExpertDirectory';
+ import MyConsultations from './pages/MyConsultations';
+ import ConsultationRoom from './pages/ConsultationRoom';
++import Receipt from './pages/Receipt';
+ import ExpertPortal from './pages/ExpertPortal';
+ import AdminExperts from './pages/AdminExperts';
+ import AboutUs from './pages/AboutUs';
+@@ -228,6 +229,7 @@ function App() {
+           <Route path="/experts" element={<ExpertDirectory />} />
+           <Route path="/my-consultations" element={<MyConsultations />} />
+           <Route path="/consultation/:id" element={<ConsultationRoom />} />
++          <Route path="/receipt/:id" element={<Receipt />} />
+           <Route path="/expert" element={<ExpertPortal />} />
+           <Route path="/admin/experts" element={<AdminExperts />} />
+           <Route path="/about" element={<AboutUs />} />
+diff --git a/b/frontend/src/components/PaymentModal.js b/frontend/src/components/PaymentModal.js
+new file mode 100644
+index 0000000..acfb78c
+--- /dev/null
++++ b/frontend/src/components/PaymentModal.js
+@@ -0,0 +1,100 @@
++import React, { useState } from 'react';
++import { Link } from 'react-router-dom';
++import { useTranslation } from 'react-i18next';
++import { api, money } from '../lib/expertApi';
++
++const METHODS = [
++    { id: 'upi', icon: '📱', label: 'experts.pay.upi' },
++    { id: 'card', icon: '💳', label: 'experts.pay.card' },
++    { id: 'netbanking', icon: '🏦', label: 'experts.pay.netbanking' },
++];
++const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
++
++// DEMO checkout window. It looks like a payment step but collects NO card/UPI/bank details
++// and moves no money; the backend just records the payment and issues a receipt.
++function PaymentModal({ consultation, onPaid, onClose }) {
++    const { t } = useTranslation();
++    const [method, setMethod] = useState('upi');
++    const [step, setStep] = useState('choose');     // choose | processing | success
++    const [error, setError] = useState(null);
++    const [payment, setPayment] = useState(null);
++
++    const confirm = async () => {
++        setStep('processing'); setError(null);
++        try {
++            const [d] = await Promise.all([
++                api(`/api/consultations/${consultation.id}/pay`, { method: 'POST', body: { method } }),
++                sleep(1500),                          // short pause so the demo feels like a real payment
++            ]);
++            setPayment(d.payment);
++            setStep('success');
++            onPaid(d.consultation);
++        } catch (err) {
++            setError(err.message || t('experts.pay.failed'));
++            setStep('choose');
++        }
++    };
++
++    return (
++        <div className="fixed inset-0 z-[60] bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" data-testid="payment-modal">
++            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
++                <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-4 flex items-center justify-between">
++                    <h2 className="font-bold">{t('experts.pay.modalTitle')}</h2>
++                    <span className="text-[11px] font-bold tracking-wider bg-yellow-300 text-yellow-900 px-2 py-1 rounded">{t('experts.pay.demoBanner')}</span>
++                </div>
++
++                <div className="p-6">
++                    {step === 'success' ? (
++                        <div className="text-center">
++                            <div className="text-6xl mb-3">✅</div>
++                            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1">{t('experts.pay.success')}</h3>
++                            <p className="text-2xl font-bold text-green-600 mb-2">{money(payment.amount)}</p>
++                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">{t('experts.pay.receiptNo')}: {payment.receipt_no}</p>
++                            <div className="flex justify-center gap-3">
++                                <Link to={`/receipt/${consultation.id}`} className="bg-green-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-green-700">{t('experts.pay.viewReceipt')}</Link>
++                                <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">{t('experts.pay.close')}</button>
++                            </div>
++                        </div>
++                    ) : step === 'processing' ? (
++                        <div className="text-center py-8">
++                            <div className="mx-auto mb-4 h-12 w-12 rounded-full border-4 border-green-200 border-t-green-600 animate-spin" />
++                            <p className="text-gray-700 dark:text-gray-200">{t('experts.pay.processing')}</p>
++                        </div>
++                    ) : (
++                        <>
++                            <div className="mb-5 rounded-xl bg-green-50 dark:bg-slate-700 p-4">
++                                <p className="text-sm text-gray-500 dark:text-gray-300">{consultation.expert_name} · {consultation.topic}</p>
++                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{consultation.minutes_billed} min × {money(consultation.rate_per_minute)}</p>
++                                <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">{t('experts.pay.amountLabel')}</p>
++                                <p className="text-3xl font-bold text-green-600">{money(consultation.amount)}</p>
++                            </div>
++
++                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-2">{t('experts.pay.chooseMethod')}</p>
++                            <div className="space-y-2 mb-4">
++                                {METHODS.map((m) => (
++                                    <label key={m.id} className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer ${method === m.id ? 'border-green-600 bg-green-50 dark:bg-slate-700' : 'border-gray-200 dark:border-slate-600'}`}>
++                                        <input type="radio" name="pay-method" value={m.id} checked={method === m.id} onChange={() => setMethod(m.id)} />
++                                        <span className="text-xl">{m.icon}</span>
++                                        <span className="text-gray-800 dark:text-gray-100">{t(m.label)}</span>
++                                    </label>
++                                ))}
++                            </div>
++
++                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">{t('experts.pay.demoNote')}</p>
++                            {error && <p className="text-sm text-red-600 mb-3">{error}</p>}
++
++                            <div className="flex justify-end gap-2">
++                                <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">{t('experts.cancel')}</button>
++                                <button type="button" onClick={confirm} className="bg-green-600 text-white px-5 py-2 rounded-lg font-semibold hover:bg-green-700">
++                                    {t('experts.pay.confirm')} · {money(consultation.amount)}
++                                </button>
++                            </div>
++                        </>
++                    )}
++                </div>
++            </div>
++        </div>
++    );
++}
++
++export default PaymentModal;
+diff --git a/frontend/src/locales/en/translation.json b/frontend/src/locales/en/translation.json
+index 935955e..de65244 100644
+--- a/frontend/src/locales/en/translation.json
++++ b/frontend/src/locales/en/translation.json
+@@ -119,7 +119,7 @@
+     "sending": "Sending...",
+     "cancel": "Cancel",
+     "close": "Close",
+-    "billingNote": "You are charged ₹{{rate}} per minute (rounded up to the next minute) only after you press Start. Payment is not collected in this version.",
++    "billingNote": "You are charged ₹{{rate}} per minute (rounded up to the next minute) only after you press Start. Payments are a demo: no real money is charged.",
+     "loginNeeded": "Please log in as a farmer to request a consultation.",
+     "login": "Log in",
+     "requestSent": "Request sent! The expert will respond soon.",
+@@ -168,12 +168,46 @@
+       "idleNote": "The session ends automatically after {{min}} minutes without messages.",
+       "summaryMinutes": "Billed minutes",
+       "summaryAmount": "Amount due",
+-      "paymentNote": "Payment is not collected in this version.",
++      "paymentNote": "Demo payment: no real money is charged.",
+       "endedIdle": "The session ended automatically because of no activity.",
+       "endedLimit": "The session ended automatically at the maximum length.",
+       "originalRequest": "Original request",
+       "typeMessage": "Type a message...",
+       "sendMsg": "Send"
++    },
++    "pay": {
++      "paid": "Paid",
++      "unpaid": "Payment pending",
++      "awaiting": "Awaiting payment",
++      "payNow": "Pay {{amount}}",
++      "rate": "Rate",
++      "chooseMethod": "Choose a payment method",
++      "upi": "UPI",
++      "card": "Debit / credit card",
++      "netbanking": "Net banking",
++      "confirm": "Confirm payment",
++      "processing": "Processing payment...",
++      "success": "Payment successful",
++      "viewReceipt": "View receipt",
++      "close": "Close",
++      "demoBanner": "DEMO PAYMENT",
++      "demoNote": "No real money is charged and no card, UPI or bank details are collected.",
++      "modalTitle": "DharaAI Demo Checkout",
++      "amountLabel": "Amount",
++      "failed": "Payment could not be completed. Please try again.",
++      "receiptTitle": "Payment receipt",
++      "receiptNo": "Receipt no.",
++      "reference": "Transaction ID (demo)",
++      "paidOn": "Paid on",
++      "method": "Payment method",
++      "expert": "Expert",
++      "farmer": "Farmer",
++      "topic": "Topic",
++      "session": "Session",
++      "minutes": "Billed minutes × rate",
++      "total": "Total paid",
++      "print": "Print / Save as PDF",
++      "backToChat": "Back to consultation"
+     }
+   }
+ }
+\ No newline at end of file
+diff --git a/frontend/src/locales/hi/translation.json b/frontend/src/locales/hi/translation.json
+index 153809d..a477078 100644
+--- a/frontend/src/locales/hi/translation.json
++++ b/frontend/src/locales/hi/translation.json
+@@ -119,7 +119,7 @@
+     "sending": "भेज रहे हैं...",
+     "cancel": "रद्द करें",
+     "close": "बंद करें",
+-    "billingNote": "शुल्क ₹{{rate}} प्रति मिनट है (अगले मिनट तक पूर्णांकित), और केवल आपके 'शुरू करें' दबाने के बाद लगेगा। इस संस्करण में भुगतान नहीं लिया जाता।",
++    "billingNote": "शुल्क ₹{{rate}} प्रति मिनट है (अगले मिनट तक पूर्णांकित), और केवल आपके 'शुरू करें' दबाने के बाद लगेगा। भुगतान डेमो है: कोई असली पैसा नहीं लिया जाता।",
+     "loginNeeded": "परामर्श का अनुरोध करने के लिए कृपया किसान के रूप में लॉग इन करें।",
+     "login": "लॉग इन",
+     "requestSent": "अनुरोध भेज दिया गया! विशेषज्ञ जल्द जवाब देंगे।",
+@@ -168,12 +168,46 @@
+       "idleNote": "{{min}} मिनट कोई संदेश न होने पर सत्र अपने आप समाप्त हो जाएगा।",
+       "summaryMinutes": "बिल किए गए मिनट",
+       "summaryAmount": "देय राशि",
+-      "paymentNote": "इस संस्करण में भुगतान नहीं लिया जाता।",
++      "paymentNote": "डेमो भुगतान: कोई असली पैसा नहीं लिया जाता।",
+       "endedIdle": "कोई गतिविधि न होने के कारण सत्र अपने आप समाप्त हुआ।",
+       "endedLimit": "अधिकतम समय सीमा पूरी होने पर सत्र अपने आप समाप्त हुआ।",
+       "originalRequest": "मूल अनुरोध",
+       "typeMessage": "संदेश लिखें...",
+       "sendMsg": "भेजें"
++    },
++    "pay": {
++      "paid": "भुगतान हो गया",
++      "unpaid": "भुगतान बाकी",
++      "awaiting": "भुगतान की प्रतीक्षा",
++      "payNow": "{{amount}} का भुगतान करें",
++      "rate": "दर",
++      "chooseMethod": "भुगतान का तरीका चुनें",
++      "upi": "UPI",
++      "card": "डेबिट / क्रेडिट कार्ड",
++      "netbanking": "नेट बैंकिंग",
++      "confirm": "भुगतान की पुष्टि करें",
++      "processing": "भुगतान प्रक्रिया में है...",
++      "success": "भुगतान सफल रहा",
++      "viewReceipt": "रसीद देखें",
++      "close": "बंद करें",
++      "demoBanner": "डेमो भुगतान",
++      "demoNote": "कोई असली पैसा नहीं लिया जाता और कार्ड, UPI या बैंक की कोई जानकारी नहीं ली जाती।",
++      "modalTitle": "DharaAI डेमो चेकआउट",
++      "amountLabel": "राशि",
++      "failed": "भुगतान पूरा नहीं हो सका। कृपया फिर कोशिश करें।",
++      "receiptTitle": "भुगतान रसीद",
++      "receiptNo": "रसीद संख्या",
++      "reference": "लेन-देन आईडी (डेमो)",
++      "paidOn": "भुगतान की तिथि",
++      "method": "भुगतान का तरीका",
++      "expert": "विशेषज्ञ",
++      "farmer": "किसान",
++      "topic": "विषय",
++      "session": "सत्र",
++      "minutes": "बिल किए गए मिनट × दर",
++      "total": "कुल भुगतान",
++      "print": "प्रिंट / PDF के रूप में सहेजें",
++      "backToChat": "परामर्श पर वापस"
+     }
+   }
+ }
+\ No newline at end of file
+diff --git a/frontend/src/locales/mr/translation.json b/frontend/src/locales/mr/translation.json
+index 4782179..f75e5c5 100644
+--- a/frontend/src/locales/mr/translation.json
++++ b/frontend/src/locales/mr/translation.json
+@@ -119,7 +119,7 @@
+     "sending": "पाठवत आहोत...",
+     "cancel": "रद्द करा",
+     "close": "बंद करा",
+-    "billingNote": "शुल्क ₹{{rate}} प्रति मिनिट आहे (पुढील मिनिटापर्यंत पूर्णांकित), आणि फक्त तुम्ही 'सुरू करा' दाबल्यानंतर लागेल. या आवृत्तीत पैसे घेतले जात नाहीत.",
++    "billingNote": "शुल्क ₹{{rate}} प्रति मिनिट आहे (पुढील मिनिटापर्यंत पूर्णांकित), आणि फक्त तुम्ही 'सुरू करा' दाबल्यानंतर लागेल. पेमेंट डेमो आहे: खरे पैसे घेतले जात नाहीत.",
+     "loginNeeded": "सल्ल्याची विनंती करण्यासाठी कृपया शेतकरी म्हणून लॉग इन करा.",
+     "login": "लॉग इन",
+     "requestSent": "विनंती पाठवली! तज्ज्ञ लवकरच उत्तर देतील.",
+@@ -168,12 +168,46 @@
+       "idleNote": "{{min}} मिनिटे संदेश नसल्यास सत्र आपोआप संपेल.",
+       "summaryMinutes": "आकारलेले मिनिटे",
+       "summaryAmount": "देय रक्कम",
+-      "paymentNote": "या आवृत्तीत पैसे घेतले जात नाहीत.",
++      "paymentNote": "डेमो पेमेंट: खरे पैसे घेतले जात नाहीत.",
+       "endedIdle": "कोणतीही हालचाल नसल्याने सत्र आपोआप संपले.",
+       "endedLimit": "कमाल वेळमर्यादा पूर्ण झाल्याने सत्र आपोआप संपले.",
+       "originalRequest": "मूळ विनंती",
+       "typeMessage": "संदेश लिहा...",
+       "sendMsg": "पाठवा"
++    },
++    "pay": {
++      "paid": "पेमेंट झाले",
++      "unpaid": "पेमेंट बाकी",
++      "awaiting": "पेमेंटची प्रतीक्षा",
++      "payNow": "{{amount}} पेमेंट करा",
++      "rate": "दर",
++      "chooseMethod": "पेमेंटची पद्धत निवडा",
++      "upi": "UPI",
++      "card": "डेबिट / क्रेडिट कार्ड",
++      "netbanking": "नेट बँकिंग",
++      "confirm": "पेमेंटची खात्री करा",
++      "processing": "पेमेंट प्रक्रिया सुरू आहे...",
++      "success": "पेमेंट यशस्वी",
++      "viewReceipt": "पावती पहा",
++      "close": "बंद करा",
++      "demoBanner": "डेमो पेमेंट",
++      "demoNote": "खरे पैसे घेतले जात नाहीत आणि कार्ड, UPI किंवा बँकेची कोणतीही माहिती घेतली जात नाही.",
++      "modalTitle": "DharaAI डेमो चेकआउट",
++      "amountLabel": "रक्कम",
++      "failed": "पेमेंट पूर्ण होऊ शकले नाही. कृपया पुन्हा प्रयत्न करा.",
++      "receiptTitle": "पेमेंट पावती",
++      "receiptNo": "पावती क्रमांक",
++      "reference": "व्यवहार आयडी (डेमो)",
++      "paidOn": "पेमेंटची तारीख",
++      "method": "पेमेंटची पद्धत",
++      "expert": "तज्ज्ञ",
++      "farmer": "शेतकरी",
++      "topic": "विषय",
++      "session": "सत्र",
++      "minutes": "आकारलेले मिनिटे × दर",
++      "total": "एकूण भरलेले",
++      "print": "प्रिंट / PDF म्हणून जतन करा",
++      "backToChat": "सल्ल्याकडे परत"
+     }
+   }
+ }
+\ No newline at end of file
+diff --git a/frontend/src/pages/ConsultationRoom.js b/frontend/src/pages/ConsultationRoom.js
+index 09b3266..bf583ac 100644
+--- a/frontend/src/pages/ConsultationRoom.js
++++ b/frontend/src/pages/ConsultationRoom.js
+@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
+ import { Link, useParams } from 'react-router-dom';
+ import { useTranslation } from 'react-i18next';
+ import { api, money, STATUS_STYLE } from '../lib/expertApi';
++import PaymentModal from '../components/PaymentModal';
+ 
+ const LIVE = ['requested', 'accepted', 'active'];
+ 
+@@ -20,6 +21,7 @@ function ConsultationRoom() {
+     const [error, setError] = useState(null);
+     const [text, setText] = useState('');
+     const [busy, setBusy] = useState(false);
++    const [showPay, setShowPay] = useState(false);
+     const [, setTick] = useState(0);
+     const lastId = useRef(0);
+     const polledAt = useRef(Date.now());
+@@ -144,11 +146,24 @@ function ConsultationRoom() {
+                         <div className="mt-4 bg-green-50 dark:bg-slate-700 border border-green-200 dark:border-slate-600 rounded-2xl p-5">
+                             <div className="flex flex-wrap gap-8">
+                                 <div><div className="text-sm text-gray-500">{t('experts.room.summaryMinutes')}</div><div className="text-2xl font-bold text-gray-800 dark:text-white">{c.minutes_billed}</div></div>
++                                <div><div className="text-sm text-gray-500">{t('experts.pay.rate')}</div><div className="text-2xl font-bold text-gray-800 dark:text-white">{money(c.rate_per_minute)}</div></div>
+                                 <div><div className="text-sm text-gray-500">{t('experts.room.summaryAmount')}</div><div className="text-2xl font-bold text-green-600">{money(c.amount)}</div></div>
+                             </div>
+                             {(c.ended_by === 'idle' || c.ended_by === 'limit') && (
+                                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t(c.ended_by === 'idle' ? 'experts.room.endedIdle' : 'experts.room.endedLimit')}</p>
+                             )}
++                            <div className="mt-4 flex flex-wrap items-center gap-3">
++                                {c.payment?.paid ? (<>
++                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">{t('experts.pay.paid')}</span>
++                                    <Link to={`/receipt/${c.id}`} className="text-green-700 dark:text-green-400 underline text-sm font-medium">{t('experts.pay.viewReceipt')}</Link>
++                                </>) : isFarmer ? (
++                                    <button type="button" onClick={() => setShowPay(true)} className={`${btn} bg-green-600 text-white hover:bg-green-700`}>
++                                        {t('experts.pay.payNow', { amount: money(c.amount) })}
++                                    </button>
++                                ) : (
++                                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">{t('experts.pay.awaiting')}</span>
++                                )}
++                            </div>
+                             <p className="mt-2 text-xs text-gray-500">{t('experts.room.paymentNote')}</p>
+                         </div>
+                     )}
+@@ -183,6 +198,7 @@ function ConsultationRoom() {
+                     </div>
+                 </div>
+             </div>
++            {showPay && <PaymentModal consultation={c} onPaid={(nc) => setC(nc)} onClose={() => setShowPay(false)} />}
+         </div>
+     );
+ }
+diff --git a/frontend/src/pages/ExpertPortal.js b/frontend/src/pages/ExpertPortal.js
+index fbd6017..d0e19b0 100644
+--- a/frontend/src/pages/ExpertPortal.js
++++ b/frontend/src/pages/ExpertPortal.js
+@@ -120,7 +120,9 @@ function Dashboard({ expert, setExpert, onLogout }) {
+     };
+ 
+     const approved = expert.status === 'approved';
+-    const earned = items.filter((c) => c.status === 'completed').reduce((s, c) => s + c.amount, 0);
++    const completed = items.filter((c) => c.status === 'completed');
++    const earned = completed.filter((c) => c.payment?.paid).reduce((sum, c) => sum + c.amount, 0);
++    const pending = completed.filter((c) => !c.payment?.paid).reduce((sum, c) => sum + c.amount, 0);
+     const requests = items.filter((c) => c.status === 'requested');
+     const running = items.filter((c) => c.status === 'accepted' || c.status === 'active');
+     const history = items.filter((c) => ['completed', 'declined', 'cancelled'].includes(c.status));
+@@ -135,7 +137,7 @@ function Dashboard({ expert, setExpert, onLogout }) {
+         <div className="flex flex-wrap items-center justify-between gap-3 py-3 border-b border-gray-100 dark:border-slate-700 last:border-0">
+             <div>
+                 <p className="font-semibold text-gray-800 dark:text-white">{c.topic}</p>
+-                <p className="text-sm text-gray-500">{c.farmer_name} · {money(c.rate_per_minute)}/min{c.status === 'completed' ? ` · ${c.minutes_billed} min · ${money(c.amount)}` : ''}</p>
++                <p className="text-sm text-gray-500">{c.farmer_name} · {money(c.rate_per_minute)}/min{c.status === 'completed' ? ` · ${c.minutes_billed} min · ${money(c.amount)} · ${c.payment?.paid ? 'paid' : 'awaiting payment'}` : ''}</p>
+             </div>
+             <div className="flex items-center gap-2">
+                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${STATUS_STYLE[c.status]}`}>{c.status}</span>
+@@ -181,7 +183,7 @@ function Dashboard({ expert, setExpert, onLogout }) {
+                 </div>
+                 {msg && <p className="mt-3 text-sm text-green-700">{msg}</p>}
+                 {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+-                <p className="mt-4 text-xs text-gray-500">Total billed so far: <strong>{money(earned)}</strong> (payments are not collected in this version).</p>
++                <p className="mt-4 text-xs text-gray-500">Paid: <strong>{money(earned)}</strong> · Awaiting payment: <strong>{money(pending)}</strong> (demo payments, no real money moves).</p>
+             </div>
+ 
+             {approved && (
+diff --git a/frontend/src/pages/MyConsultations.js b/frontend/src/pages/MyConsultations.js
+index def5740..2d87a7e 100644
+--- a/frontend/src/pages/MyConsultations.js
++++ b/frontend/src/pages/MyConsultations.js
+@@ -56,6 +56,9 @@ function MyConsultations() {
+                                 {c.status === 'completed' && (
+                                     <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                                         {t('experts.room.summaryMinutes')}: {c.minutes_billed} · {t('experts.room.summaryAmount')}: <strong>{money(c.amount)}</strong>
++                                        <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-semibold ${c.payment?.paid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-800'}`}>
++                                            {c.payment?.paid ? t('experts.pay.paid') : t('experts.pay.unpaid')}
++                                        </span>
+                                     </p>
+                                 )}
+                             </Link>
+diff --git a/b/frontend/src/pages/Receipt.js b/frontend/src/pages/Receipt.js
+new file mode 100644
+index 0000000..15498b4
+--- /dev/null
++++ b/frontend/src/pages/Receipt.js
+@@ -0,0 +1,79 @@
++import React, { useEffect, useState } from 'react';
++import { Link, useParams } from 'react-router-dom';
++import { useTranslation } from 'react-i18next';
++import { api, money } from '../lib/expertApi';
++
++const PRINT_CSS = `@media print {
++  nav, .fixed, .no-print { display: none !important; }
++  body { background: #fff !important; }
++  .receipt-sheet { box-shadow: none !important; border: 1px solid #ccc; }
++}`;
++
++function Row({ label, children }) {
++    return (
++        <div className="flex justify-between gap-4 py-2 border-b border-gray-100 text-sm">
++            <span className="text-gray-500">{label}</span>
++            <span className="text-gray-800 text-right font-medium">{children}</span>
++        </div>
++    );
++}
++
++function Receipt() {
++    const { id } = useParams();
++    const { t, i18n } = useTranslation();
++    const [r, setR] = useState(null);
++    const [error, setError] = useState(null);
++
++    useEffect(() => {
++        api(`/api/consultations/${id}/receipt`).then((d) => setR(d.receipt)).catch((e) => setError(e.message));
++    }, [id]);
++
++    const when = (iso) => (iso ? new Date(iso).toLocaleString(i18n.language) : '');
++
++    return (
++        <div className="min-h-screen bg-gradient-to-b from-green-50 to-white dark:from-slate-900 dark:to-slate-800 py-10">
++            <style>{PRINT_CSS}</style>
++            <div className="container mx-auto px-6 max-w-xl">
++                {error && <p className="text-center text-red-600">{error}</p>}
++                {!error && !r && <p className="text-center text-gray-500 animate-pulse">{t('experts.loading')}</p>}
++
++                {r && (
++                    <>
++                        <div className="receipt-sheet bg-white rounded-2xl shadow-xl p-8" data-testid="receipt">
++                            <div className="flex items-start justify-between mb-6">
++                                <div>
++                                    <h1 className="text-2xl font-bold text-green-700">DharaAI</h1>
++                                    <p className="text-sm text-gray-500">{t('experts.pay.receiptTitle')}</p>
++                                </div>
++                                <span className="text-[11px] font-bold tracking-wider bg-yellow-300 text-yellow-900 px-2 py-1 rounded">{t('experts.pay.demoBanner')}</span>
++                            </div>
++
++                            <Row label={t('experts.pay.receiptNo')}>{r.receipt_no}</Row>
++                            <Row label={t('experts.pay.reference')}>{r.reference}</Row>
++                            <Row label={t('experts.pay.paidOn')}>{when(r.paid_at)}</Row>
++                            <Row label={t('experts.pay.method')}>{t(`experts.pay.${r.method}`)}</Row>
++                            <Row label={t('experts.pay.farmer')}>{r.farmer_name}</Row>
++                            <Row label={t('experts.pay.expert')}>{r.expert_name}{r.expert_qualification ? ` (${r.expert_qualification})` : ''}</Row>
++                            <Row label={t('experts.pay.topic')}>{r.topic}</Row>
++                            <Row label={t('experts.pay.session')}>{when(r.started_at)} → {when(r.ended_at)}</Row>
++                            <Row label={t('experts.pay.minutes')}>{r.minutes_billed} × {money(r.rate_per_minute)}</Row>
++
++                            <div className="flex justify-between items-center mt-5 pt-4 border-t-2 border-gray-200">
++                                <span className="font-semibold text-gray-700">{t('experts.pay.total')}</span>
++                                <span className="text-3xl font-bold text-green-700">{money(r.amount)}</span>
++                            </div>
++                            <p className="mt-6 text-xs text-gray-400">{t('experts.pay.demoNote')}</p>
++                        </div>
++
++                        <div className="no-print mt-6 flex flex-wrap justify-center gap-3">
++                            <button type="button" onClick={() => window.print()} className="bg-green-600 text-white px-5 py-2 rounded-lg font-medium hover:bg-green-700">{t('experts.pay.print')}</button>
++                            <Link to={`/consultation/${id}`} className="px-5 py-2 rounded-lg border border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-200">{t('experts.pay.backToChat')}</Link>
++                        </div>
++                    </>
++                )}
++            </div>
++        </div>
++    );
++}
++
++export default Receipt;
